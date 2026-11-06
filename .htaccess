@@ -1,12 +1,15 @@
 # ============================================================
-# VinStudio / Node.js Application Apache Configuration
+# VinStudio - Apache Configuration (.htaccess)
 # ============================================================
 
-# 1. Matikan penampilan daftar isi direktori (mencegah "Index of /")
+# 1. Pastikan index.php dibuka pertama kali
+DirectoryIndex index.php index.html
+
+# 2. Matikan penampilan daftar isi direktori (Mencegah "Index of /")
 Options -Indexes
 
-# 2. Lindungi file sensitif dari akses langsung browser
-<FilesMatch "(\.env|\.db|\.sqlite|\.log|\.err|\.json|\.yml|\.yaml|server\.js|admin-routes\.js|db-migrate\.js|profile-sync\.js|make-admin\.js)$">
+# 3. Lindungi file sensitif & database dari download langsung
+<FilesMatch "(\.env|\.sqlite|\.sql|\.db|\.log|\.err|config\.php)$">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>
@@ -16,11 +19,11 @@ Options -Indexes
     </IfModule>
 </FilesMatch>
 
-# 3. Lindungi folder tersembunyi seperti .git, .github
+# 4. Lindungi file & folder tersembunyi (seperti .git, .github)
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteRule "(^|/)\.(?!well-known)" - [F]
 </IfModule>
 
-# 4. UTF-8 Default
+# 5. Charset default UTF-8
 AddDefaultCharset UTF-8
