@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Album - TKJ Connect</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <span class="logo-icon">💻</span>
+                <span class="logo-text">TKJ Connect</span>
+            </div>
+            <%- include('partials/nav', { currentPage: 'albums', user: locals.user }) %>
+            <button class="mobile-menu-btn"><span></span><span></span><span></span></button>
+        </div>
+    </header>
+
+    <main>
+        <section class="gallery-page">
+            <div class="container">
+                <div class="page-header">
+                    <h1>📸 Album Kelas TKJ</h1>
+                    <% if (user) { %>
+                        <a href="/albums/add" class="btn btn-primary btn-sm">+ Tambah Album</a>
+                    <% } %>
+                </div>
+
+                <% if (albums.length > 0) { %>
+                <div class="album-grid">
+                    <% albums.forEach(album => { %>
+                    <article class="album-card">
+                        <img src="<%= album.photo && album.photo !== 'no-image.png' ? '/uploads/' + album.photo : '/img/placeholder.svg' %>" alt="<%= album.title %>" onerror="this.onerror=null;this.src='/img/placeholder.svg';">
+                        <div class="album-content">
+                            <h3><%= album.title %></h3>
+                            <% if (album.description) { %><p><%= album.description %></p><% } %>
+                            <div class="album-actions">
+                                <span class="badge">Oleh <%= album.username %></span>
+                                <% if (user && album.user_id === user.id) { %>
+                                    <a href="/albums/delete/<%= album.id %>" class="btn-delete" onclick="return confirm('Hapus album ini?')">Hapus</a>
+                                <% } %>
+                            </div>
+                        </div>
+                    </article>
+                    <% }) %>
+                </div>
+                <% } else { %>
+                <div class="empty-state">
+                    <p>Belum ada album. <% if (user) { %><a href="/albums/add">Buat album pertama</a><% } else { %><a href="/login?r=/albums/add">Login untuk menambah album</a><% } %></p>
+                </div>
+                <% } %>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; <%= new Date().getFullYear() %> TKJ Profile Web App</p>
+        </div>
+    </footer>
+
+    <script src="/js/main.js"></script>
+</body>
+</html>

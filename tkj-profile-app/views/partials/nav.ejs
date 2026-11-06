@@ -1,0 +1,18 @@
+<nav class="main-nav">
+    <ul>
+        <li><a href="/" class="<%= locals.currentPage === 'home' ? 'active' : '' %>">Beranda</a></li>
+        <li><a href="/profile" class="<%= locals.currentPage === 'profile' ? 'active' : '' %>">Profil Kelas</a></li>
+        <li><a href="/albums" class="<%= locals.currentPage === 'albums' ? 'active' : '' %>">Album</a></li>
+        <li><a href="/stories" class="<%= locals.currentPage === 'stories' ? 'active' : '' %>">Cerita</a></li>
+        <% if (locals.user) { %>
+            <% if (locals.user.role === 'admin') { %>
+                <li><a href="/admin" class="<%= locals.currentPage === 'admin' ? 'active' : '' %>">&#9881; Panel Admin</a></li>
+            <% } %>
+            <li><a href="/dashboard" class="<%= locals.currentPage === 'dashboard' ? 'active' : '' %>" title="<%= locals.user.email %>"><%= locals.user.displayName %></a></li>
+            <li><a href="/logout" class="btn-logout">Keluar</a></li>
+        <% } else { %>
+            <li><a href="/login" class="<%= locals.currentPage === 'login' ? 'active' : '' %>">Masuk</a></li>
+            <li><a href="/register" class="<%= locals.currentPage === 'register' ? 'active' : '' %>">Daftar</a></li>
+        <% } %>
+    </ul>
+</nav>

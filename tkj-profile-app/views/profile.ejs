@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profil Kelas - TKJ Connect</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <span class="logo-icon">💻</span>
+                <span class="logo-text">TKJ Connect</span>
+            </div>
+            <%- include('partials/nav', { currentPage: 'profile', user: locals.user }) %>
+            <button class="mobile-menu-btn"><span></span><span></span><span></span></button>
+        </div>
+    </header>
+
+    <main>
+        <section class="profile-detail">
+            <div class="container">
+                <% if (profile) { %>
+                <div class="profile-header">
+                    <h1>Profil Kelas: <%= profile.class_name %></h1>
+                    <% if (profile.photo && profile.photo !== 'no-image.png' && profile.photo !== 'tkj-logo.png') { %>
+                        <img src="/uploads/<%= profile.photo %>" class="profile-photo" alt="Foto kelas" onerror="this.onerror=null;this.src='/img/placeholder.svg';">
+                    <% } else { %>
+                        <div class="profile-avatar">
+                            <span class="avatar-icon">💻</span>
+                        </div>
+                    <% } %>
+                    <div class="profile-meta">
+                        <span><strong>Wali:</strong> <%= profile.teacher_name %></span>
+                        <span><strong>Tahun:</strong> <%= profile.school_year %></span>
+                    </div>
+                </div>
+
+                <div class="profile-content">
+                    <div class="profile-section">
+                        <h2>Deskripsi</h2>
+                        <p><%= profile.description %></p>
+                    </div>
+                    <div class="profile-section">
+                        <h2>Visi</h2>
+                        <p class="vision-text"><%= profile.vision %></p>
+                    </div>
+                    <div class="profile-section">
+                        <h2>Misi</h2>
+                        <p class="mission-text"><%= profile.mission %></p>
+                    </div>
+                </div>
+                <% } else { %>
+                <div class="empty-state">
+                    <p>Data profil belum tersedia.</p>
+                </div>
+                <% } %>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; <%= new Date().getFullYear() %> TKJ Profile Web App</p>
+        </div>
+    </footer>
+
+    <script src="/js/main.js"></script>
+</body>
+</html>

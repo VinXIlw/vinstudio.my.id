@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Admin - TKJ Connect</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <span class="logo-icon">&#9881;</span>
+                <span class="logo-text">TKJ Connect Admin</span>
+            </div>
+            <%- include('partials/nav', { currentPage: 'admin', user: user }) %>
+            <button class="mobile-menu-btn" aria-label="Buka menu"><span></span><span></span><span></span></button>
+        </div>
+    </header>
+
+    <main>
+        <!-- ===== HEADER HALAMAN ===== -->
+        <div class="page-header page-anim">
+            <div>
+                <h1>&#9881; Panel Admin</h1>
+                <p class="page-subtitle">Kelola profil kelas, akun pengguna, dan keamanan portal TKJ.</p>
+            </div>
+            <div class="user-cell">
+                <span class="user-avatar <%= avatarClass(user.displayName) %>"><%= initials(user.displayName) %></span>
+                <div class="user-info">
+                    <div class="user-name"><%= user.displayName %></div>
+                    <span class="user-email"><%= user.email %></span>
+                </div>
+            </div>
+        </div>
+
+        <% if (msg) { %>
+            <div class="alert alert-success"><%= msg %></div>
+        <% } %>
+        <% if (err) { %>
+            <div class="alert alert-error"><%= err %></div>
+        <% } %>
+
+        <!-- ===== STATISTIK ===== -->
+        <section class="stat-grid page-anim">
+            <div class="stat-box v-blue">
+                <div class="stat-icon">&#128101;</div>
+                <div>
+                    <span class="stat-value" data-count="<%= stats.totalUsers %>"><%= stats.totalUsers %></span>
+                    <span class="stat-caption">Total Pengguna</span>
+                </div>
+            </div>
+            <div class="stat-box v-violet">
+                <div class="stat-icon">&#128737;</div>
+                <div>
+                    <span class="stat-value" data-count="<%= stats.adminUsers %>"><%= stats.adminUsers %></span>
+                    <span class="stat-caption">Administrator</span>
+                </div>
+            </div>
+            <div class="stat-box v-cyan">
+                <div class="stat-icon">&#128188;</div>
+                <div>
+                    <span class="stat-value" data-count="<%= stats.memberUsers %>"><%= stats.memberUsers %></span>
+                    <span class="stat-caption">Anggota Kelas</span>
+                </div>
+            </div>
+            <div class="stat-box v-green">
+                <div class="stat-icon">&#128690;</div>
+                <div>
+                    <span class="stat-value" data-count="<%= stats.loginToday %>"><%= stats.loginToday %></span>
+                    <span class="stat-caption">Login Hari Ini</span>
+                </div>
+            </div>
+            <div class="stat-box v-amber">
+                <div class="stat-icon">&#128293;</div>
+                <div>
+                    <span class="stat-value" data-count="<%= stats.newThisWeek %>"><%= stats.newThisWeek %></span>
+                    <span class="stat-caption">Pengguna Baru (7 hari)</span>
+                </div>
+            </div>
+            <div class="stat-box v-rose">
+                <div class="stat-icon">&#128722;</div>
+                <div>
+                    <span class="stat-value" data-count="<%= stats.totalAlbums + stats.totalStories %>"><%= stats.totalAlbums + stats.totalStories %></span>
+                    <span class="stat-caption">Album &amp; Cerita</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== TAB PANEL ===== -->
+        <div class="tab-wrap" data-tabs data-default-tab="ringkasan">
+            <nav class="tabs" role="tablist">
+                <button type="button" class="tab-btn" data-tab="ringkasan" role="tab">&#128202; Ringkasan</button>
+                <button type="button" class="tab-btn" data-tab="profil" role="tab">&#128221; Profil Kelas</button>
+                <button type="button" class="tab-btn" data-tab="pengguna" role="tab">
+                    &#128101; Pengguna <span class="tab-count"><%= users.length %></span>
+                </button>
+                <button type="button" class="tab-btn" data-tab="keamanan" role="tab">&#128274; Keamanan</button>
+                <button type="button" class="tab-btn" data-tab="aktivitas" role="tab">&#128203; Aktivitas</button>
+            </nav>
+
+            <!-- ===== PANEL: RINGKASAN ===== -->
+            <div class="tab-panel" data-panel="ringkasan">
+                <div class="admin-card">
+                    <h2>&#128200; Ringkasan Kelas</h2>
+                    <p class="admin-hint">Ringkasan cepat data kelas dan aktivitas terakhir pengguna.</p>
+
+                    <div class="info-grid" style="margin-bottom:1.5rem;">
+                        <div>
+                            <span class="label">Nama Kelas</span>
+                            <span class="value"><%= profile ? profile.class_name : '-' %></span>
+                        </div>
+                        <div>
+                            <span class="label">Wali Kelas</span>
+                            <span class="value"><%= profile ? profile.teacher_name : '-' %></span>
+                        </div>
+                        <div>
+                            <span class="label">Tahun Ajaran</span>
+                            <span class="value"><%= profile ? (profile.school_year || '-') : '-' %></span>
+                        </div>
+                        <div>
+                            <span class="label">Anggota Aktif (7 hari)</span>
+                            <span class="value"><%= stats.activeWeek %> pengguna</span>
+                        </div>
+                    </div>
+
+                    <h2 style="margin-top:1.5rem;">&#128203; Aktivitas Login Terakhir</h2>
+                    <% if (!logs.length) { %>
+                        <div class="empty-state">
+                            <span class="empty-icon">&#128164;</span>
+                            <p>Belum ada aktivitas login tercatat.</p>
+                        </div>
+                    <% } else { %>
+                        <div class="log-list">
+                            <% logs.forEach(function (l) { %>
+                                <div class="log-item">
+                                    <div class="log-dot <%= l.action === 'login' ? 'ok' : (l.action.indexOf('gagal') !== -1 || l.action.indexOf('ditolak') !== -1 ? 'bad' : 'warn') %>">
+                                        <%= l.action === 'login' ? '&#128275;' : (l.action.indexOf('gagal') !== -1 || l.action.indexOf('ditolak') !== -1 ? '&#10060;' : '&#9881;') %>
+                                    </div>
+                                    <div class="log-body">
+                                        <div class="log-title">
+                                            <%= l.display_name || l.email || 'Tidak diketahui' %>
+                                            <span class="admin-hint">(<%= l.action %>)</span>
+                                        </div>
+                                        <div class="log-meta">
+                                            <%= l.email || '-' %> &middot; <%= l.ip || 'IP tidak dikenal' %>
+                                            <% if (l.detail) { %> &middot; <%= l.detail %><% } %>
+                                        </div>
+                                    </div>
+                                    <span class="log-time"><%= timeAgo(l.created_at) %></span>
+                                </div>
+                            <% }) %>
+                        </div>
+                    <% } %>
+                </div>
+            </div>
+
+
+            <!-- ===== PANEL: PROFIL KELAS ===== -->
+            <div class="tab-panel" data-panel="profil">
+                <div class="admin-card">
+                    <h2>&#128221; Data Profil Kelas</h2>
+                    <p class="admin-hint">
+                        Perubahan tersimpan langsung ke database dan ikut tersinkron ke <code>server.js</code>.
+                    </p>
+
+                    <form action="/admin/profile" method="POST" enctype="multipart/form-data">
+                        <div class="admin-grid">
+                            <div class="form-group">
+                                <label for="class_name">Nama Kelas <span class="required">*</span></label>
+                                <input type="text" id="class_name" name="class_name"
+                                       value="<%= profile ? profile.class_name : '' %>"
+                                       placeholder="Contoh: XI TKJ 2" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="teacher_name">Wali Kelas <span class="required">*</span></label>
+                                <input type="text" id="teacher_name" name="teacher_name"
+                                       value="<%= profile ? profile.teacher_name : '' %>"
+                                       placeholder="Contoh: Budi Santoso, S.Kom." required>
+                            </div>
+                            <div class="form-group">
+                                <label for="school_year">Tahun Ajaran</label>
+                                <input type="text" id="school_year" name="school_year"
+                                       value="<%= profile ? profile.school_year : '' %>"
+                                       placeholder="Contoh: 2025/2026">
+                            </div>
+                            <div class="form-group">
+                                <label for="classphoto">Foto Kelas</label>
+                                <input type="file" id="classphoto" name="classphoto" accept="image/*">
+                                <small class="admin-hint">Maks 5MB. Kosongkan jika tidak ingin mengganti foto.</small>
+                                <label class="checkbox-inline">
+                                    <input type="checkbox" name="reset_photo" value="1">
+                                    Kembalikan ke logo bawaan
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="description">Deskripsi</label>
+                            <textarea id="description" name="description" rows="3" maxlength="500"
+                                      data-counter="countDesc"
+                                      placeholder="Deskripsi singkat tentang kelas TKJ..."><%= profile ? profile.description : '' %></textarea>
+                            <div class="field-extra"><span></span><span class="char-count" id="countDesc"></span></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="vision">Visi</label>
+                            <textarea id="vision" name="vision" rows="3" maxlength="500"
+                                      data-counter="countVisi"
+                                      placeholder="Visi kelas..."><%= profile ? profile.vision : '' %></textarea>
+                            <div class="field-extra"><span></span><span class="char-count" id="countVisi"></span></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="mission">Misi</label>
+                            <textarea id="mission" name="mission" rows="4" maxlength="800"
+                                      data-counter="countMisi"
+                                      placeholder="Misi kelas..."><%= profile ? profile.mission : '' %></textarea>
+                            <div class="field-extra"><span></span><span class="char-count" id="countMisi"></span></div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">&#128190; Simpan Profil Kelas</button>
+                    </form>
+                </div>
+            </div>
+
+
+            <!-- ===== PANEL: PENGGUNA ===== -->
+            <div class="tab-panel" data-panel="pengguna">
+                <div class="admin-card">
+                    <div class="section-header">
+                        <div>
+                            <h2>&#128101; Kelola Pengguna</h2>
+                            <p class="admin-hint">Jadikan pengguna sebagai admin, ubah nama, reset password, nonaktifkan, atau hapus akun beserta album dan ceritanya.</p>
+                        </div>
+                        <button type="button" class="btn btn-primary" data-modal-open="modalBuatAkun">&#10133; Buat Akun</button>
+                    </div>
+
+                    <!-- Toolbar: cari + filter -->
+                    <div class="toolbar">
+                        <div class="search-box">
+                            <span class="search-icon">&#128269;</span>
+                            <input type="search" data-table-search placeholder="Cari nama atau email pengguna..." aria-label="Cari pengguna">
+                        </div>
+                        <form method="GET" action="/admin" class="inline-form" style="display:flex;gap:.5rem;flex-wrap:wrap;">
+                            <input type="hidden" name="tab" value="pengguna">
+                            <select name="role" onchange="this.form.submit()" aria-label="Filter peran">
+                                <option value="">Semua Peran</option>
+                                <option value="admin" <%= filters.role === 'admin' ? 'selected' : '' %>>Admin</option>
+                                <option value="user" <%= filters.role === 'user' ? 'selected' : '' %>>User</option>
+                            </select>
+                            <select name="sort" onchange="this.form.submit()" aria-label="Urutkan">
+                                <option value="terbaru"  <%= filters.sort === 'terbaru'  ? 'selected' : '' %>>Terbaru</option>
+                                <option value="terlama"  <%= filters.sort === 'terlama'  ? 'selected' : '' %>>Terlama</option>
+                                <option value="nama"     <%= filters.sort === 'nama'     ? 'selected' : '' %>>Nama A-Z</option>
+                                <option value="peran"    <%= filters.sort === 'peran'    ? 'selected' : '' %>>Peran</option>
+                                <option value="aktivitas" <%= filters.sort === 'aktivitas' ? 'selected' : '' %>>Aktivitas</option>
+                                <option value="konten"   <%= filters.sort === 'konten'   ? 'selected' : '' %>>Konten</option>
+                            </select>
+                            <% if (filters.q) { %>
+                                <a href="/admin?tab=pengguna" class="btn btn-ghost">&#10005; Reset</a>
+                            <% } %>
+                        </form>
+                        <span class="admin-hint" data-table-count><%= users.length %> pengguna</span>
+                    </div>
+
+
+                    <div class="table-wrapper">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-user">Pengguna</th>
+                                    <th class="col-role">Peran</th>
+                                    <th class="col-content">Konten</th>
+                                    <th class="col-login">Login Terakhir</th>
+                                    <th class="col-actions">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% if (!users.length) { %>
+                                    <tr>
+                                        <td colspan="5">
+                                            <div class="empty-state">
+                                                <span class="empty-icon">&#128101;</span>
+                                                <p>Tidak ada pengguna yang cocok dengan filter.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <% } %>
+                                <% users.forEach(function (u) { %>
+                                    <tr data-table-row data-search="<%= (u.display_name + ' ' + u.email + ' ' + u.role).toLowerCase() %>">
+                                        <td class="col-user">
+                                            <div class="user-cell">
+                                                <span class="user-avatar <%= avatarClass(u.display_name) %>"><%= initials(u.display_name) %></span>
+                                                <div class="user-info">
+                                                    <div class="user-name">
+                                                        <%= u.display_name %>
+                                                        <% if (u.id === user.id) { %><span class="badge">Anda</span><% } %>
+                                                        <% if (u.is_banned) { %><span class="role-badge role-banned">Nonaktif</span><% } %>
+                                                    </div>
+                                                    <span class="user-email"><%= u.email %></span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="col-role">
+                                            <span class="role-badge <%= u.role === 'admin' ? 'role-admin' : 'role-user' %>">
+                                                <%= u.role === 'admin' ? '&#128737; Admin' : '&#128100; User' %>
+                                            </span>
+                                        </td>
+                                        <td class="col-content">
+                                            <span class="cell-note">
+                                                <strong><%= u.album_count %></strong> album &middot;
+                                                <strong><%= u.story_count %></strong> cerita
+                                            </span>
+                                        </td>
+
+                                        <td class="col-login">
+                                            <span class="cell-note">
+                                                <% if (u.last_login_at) { %>
+                                                    <span class="status-dot online"></span><%= timeAgo(u.last_login_at) %>
+                                                    <br><small class="admin-hint"><%= fmtDateTime(u.last_login_at) %></small>
+                                                <% } else { %>
+                                                    <span class="status-dot offline"></span>Belum pernah login
+                                                <% } %>
+                                            </span>
+                                        </td>
+                                        <td class="col-actions">
+                                            <% if (u.id === user.id) { %>
+                                                <span class="admin-hint">Akun sendiri &mdash; atur dari tab Keamanan</span>
+                                            <% } else { %>
+                                                <div class="table-actions">
+                                                    <form action="/admin/users/<%= u.id %>/role" method="POST" class="inline-form">
+                                                        <input type="hidden" name="role" value="<%= u.role === 'admin' ? 'user' : 'admin' %>">
+                                                        <button type="submit" class="btn btn-sm btn-outline">
+                                                            <%= u.role === 'admin' ? '&#128101; Jadikan User' : '&#128737; Jadikan Admin' %>
+                                                        </button>
+                                                    </form>
+                                                    <button type="button" class="btn btn-sm btn-outline"
+                                                            data-edit-user="<%= u.id %>"
+                                                            data-edit-name="<%= u.display_name %>"
+                                                            data-edit-email="<%= u.email %>">
+                                                        &#9998; Kelola
+                                                    </button>
+                                                    <form action="/admin/users/<%= u.id %>/ban" method="POST" class="inline-form">
+                                                        <button type="submit" class="btn btn-sm <%= u.is_banned ? 'btn-success' : 'btn-warning' %>">
+                                                            <%= u.is_banned ? '&#9654; Aktifkan' : '&#10073; Nonaktifkan' %>
+                                                        </button>
+                                                    </form>
+                                                    <form action="/admin/users/<%= u.id %>/delete" method="POST" class="inline-form"
+                                                          onsubmit="return confirm('Hapus akun <%= u.display_name %> (<%= u.email %>) beserta album dan ceritanya?')">
+                                                        <button type="submit" class="btn btn-sm btn-delete">&#128465; Hapus</button>
+                                                    </form>
+                                                </div>
+                                            <% } %>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="empty-state" data-table-empty style="display:none;margin-top:1rem;">
+                        <span class="empty-icon">&#128269;</span>
+                        <p>Tidak ada pengguna yang cocok dengan pencarian.</p>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- ===== PANEL: KEAMANAN ===== -->
+            <div class="tab-panel" data-panel="keamanan">
+                <div class="admin-card">
+                    <h2>&#128274; Ganti Password Admin</h2>
+                    <p class="admin-hint">Gunakan password yang kuat dan berbeda dari email Anda. Minimal 4 karakter.</p>
+
+                    <form action="/admin/password" method="POST">
+                        <div class="admin-grid">
+                            <div class="form-group">
+                                <label for="old_password">Password Lama</label>
+                                <div class="input-wrap">
+                                    <input type="password" id="old_password" name="old_password" required autocomplete="current-password">
+                                    <button type="button" class="pw-toggle" data-target="old_password" aria-label="Tampilkan password">&#128065;</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="new_password">Password Baru</label>
+                                <div class="input-wrap">
+                                    <input type="password" id="new_password" name="new_password" required minlength="4"
+                                           autocomplete="new-password" data-pw-meter="meterPw" data-pw-hint="hintPw">
+                                    <button type="button" class="pw-toggle" data-target="new_password" aria-label="Tampilkan password">&#128065;</button>
+                                </div>
+                                <div class="pw-meter" id="meterPw"><span></span></div>
+                                <div class="pw-hint" id="hintPw"></div>
+                            </div>
+                            <div class="form-group">
+                                <label for="confirm">Konfirmasi Password Baru</label>
+                                <div class="input-wrap">
+                                    <input type="password" id="confirm" name="confirm" required minlength="4" autocomplete="new-password">
+                                    <button type="button" class="pw-toggle" data-target="confirm" aria-label="Tampilkan password">&#128065;</button>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">&#128273; Ganti Password</button>
+                    </form>
+                </div>
+
+                <div class="admin-card">
+                    <h2>&#128737; Akun Admin yang Sedang Login</h2>
+                    <p class="admin-hint">Informasi sesi aktif pada panel ini.</p>
+                    <div class="info-grid">
+                        <div>
+                            <span class="label">Nama Tampilan</span>
+                            <span class="value"><%= user.displayName %></span>
+                        </div>
+                        <div>
+                            <span class="label">Email</span>
+                            <span class="value"><%= user.email %></span>
+                        </div>
+                        <div>
+                            <span class="label">Peran</span>
+                            <span class="value">Administrator</span>
+                        </div>
+                        <div>
+                            <span class="label">Total Admin</span>
+                            <span class="value"><%= stats.adminUsers %> akun</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title || 'TKJ Profile App' %></title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <span class="logo-icon">💻</span>
+                <span class="logo-text">TKJ Connect</span>
+            </div>
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="/" class="<%= currentPage === 'home' ? 'active' : '' %>">Beranda</a></li>
+                    <li><a href="/profile" class="<%= currentPage === 'profile' ? 'active' : '' %>">Profil Kelas</a></li>
+                    <li><a href="/albums" class="<%= currentPage === 'albums' ? 'active' : '' %>">Album</a></li>
+                    <li><a href="/stories" class="<%= currentPage === 'stories' ? 'active' : '' %>">Cerita</a></li>
+                    <% if (user) { %>
+                        <li><a href="/dashboard" class="<%= currentPage === 'dashboard' ? 'active' : '' %>"><%= user.username %></a></li>
+                        <li><a href="/logout" class="btn-logout">Keluar</a></li>
+                    <% } else { %>
+                        <li><a href="/login" class="<%= currentPage === 'login' ? 'active' : '' %>">Masuk</a></li>
+                        <li><a href="/register" class="<%= currentPage === 'register' ? 'active' : '' %>">Daftar</a></li>
+                    <% } %>
+                </ul>
+            </nav>
+            <button class="mobile-menu-btn">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <%- body %>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; <%= new Date().getFullYear() %> TKJ Profile Web App. Dibuat dengan ❤️ untuk kelas Teknik Komputer dan Jaringan.</p>
+        </div>
+    </footer>
+
+    <script src="/js/main.js"></script>
+    <% if (script) { %>
+        <script src="<%= script %>"></script>
+    <% } %>
+</body>
+</html>

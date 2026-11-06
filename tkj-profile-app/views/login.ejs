@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Masuk - TKJ Connect</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <main>
+        <section class="auth-page">
+            <div class="auth-card">
+                <div class="auth-header">
+                    <div class="logo">
+                        <span class="logo-icon">💻</span>
+                        <span class="logo-text">TKJ Connect</span>
+                    </div>
+                    <h2>Selamat Datang Kembali</h2>
+                    <p>Masuk untuk menambah album dan cerita</p>
+                </div>
+
+                <% if (msg) { %>
+                    <div class="alert alert-info"><%= msg %></div>
+                <% } %>
+
+                <form action="/login" method="POST">
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" required autofocus
+                               placeholder="nama@email.com" autocomplete="email">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" required autocomplete="current-password">
+                    </div>
+                    <div class="form-group">
+                        <label for="display_name">Nama Tampilan <span class="label-hint">(opsional, untuk mengganti namamu)</span></label>
+                        <input type="text" id="display_name" name="display_name" maxlength="60"
+                               placeholder="Contoh: Budi Santoso">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Masuk</button>
+                </form>
+
+                <p class="auth-footer">
+                    Belum punya akun? <a href="/register">Daftar di sini</a>
+                </p>
+                <p style="text-align:center; margin-top:1rem;">
+                    <a href="/admin/login">Masuk sebagai Admin</a>
+                </p>
+                <p style="text-align:center; margin-top:1rem;">
+                    <a href="/">Kembali ke Beranda</a>
+                </p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; <%= new Date().getFullYear() %> TKJ Profile Web App</p>
+        </div>
+    </footer>
+</body>
+</html>

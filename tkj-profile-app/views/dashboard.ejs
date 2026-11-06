@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - TKJ Connect</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <span class="logo-icon">💻</span>
+                <span class="logo-text">TKJ Connect</span>
+            </div>
+            <%- include('partials/nav', { currentPage: 'dashboard', user: locals.user }) %>
+            <button class="mobile-menu-btn"><span></span><span></span><span></span></button>
+        </div>
+    </header>
+
+    <main>
+        <section class="dashboard-page">
+            <div class="container">
+                <h1>Halo, <span class="highlight"><%= user.displayName %></span>!</h1>
+
+                <% if (msg) { %>
+                    <div class="alert alert-success"><%= msg %></div>
+                <% } %>
+                <% if (err) { %>
+                    <div class="alert alert-error"><%= err %></div>
+                <% } %>
+
+                <section class="dashboard-card">
+                    <h2>&#128100; Profil Saya</h2>
+                    <p class="admin-hint">Email: <strong><%= user.email %></strong></p>
+                    <form action="/account/name" method="POST" class="name-form">
+                        <div class="form-group">
+                            <label for="display_name">Nama Tampilan</label>
+                            <input type="text" id="display_name" name="display_name" maxlength="60"
+                                   value="<%= user.displayName %>" required
+                                   placeholder="Contoh: Budi Santoso">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm">&#9999; Simpan Nama</button>
+                    </form>
+                </section>
+
+                <div class="dashboard-stats">
+                    <div class="stat-card">
+                        <span class="stat-number"><%= albumCount %></span>
+                        <span class="stat-label">Album yang kamu buat</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number"><%= storyCount %></span>
+                        <span class="stat-label">Cerita yang kamu buat</span>
+                    </div>
+                </div>
+
+                <div class="dashboard-grids">
+                    <div class="dashboard-column">
+                        <h2>📸 Album Saya</h2>
+                        <% if (myAlbums.length > 0) { %>
+                            <div class="dashboard-list">
+                                <% myAlbums.forEach(a => { %>
+                                <article class="list-item">
+                                    <span class="item-title"><%= a.title %></span>
+                                    <a href="/albums/delete/<%= a.id %>" class="btn-delete btn-sm" onclick="return confirm('Hapus album ini?')">Hapus</a>
+                                </article>
+                                <% }) %>
+                            </div>
+                        <% } else { %>
+                            <p class="empty-state">Belum ada album. <a href="/albums/add">Buat album pertama</a></p>
+                        <% } %>
+                    </div>
+
+                    <div class="dashboard-column">
+                        <h2>📖 Cerita Saya</h2>
+                        <% if (myStories.length > 0) { %>
+                            <div class="dashboard-list">
+                                <% myStories.forEach(s => { %>
+                                <article class="list-item">
+                                    <span class="item-title"><%= s.title %></span>
+                                    <a href="/stories/delete/<%= s.id %>" class="btn-delete btn-sm" onclick="return confirm('Hapus cerita ini?')">Hapus</a>
+                                </article>
+                                <% }) %>
+                            </div>
+                        <% } else { %>
+                            <p class="empty-state">Belum ada cerita. <a href="/stories/add">Buat cerita pertama</a></p>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; <%= new Date().getFullYear() %> TKJ Profile Web App</p>
+        </div>
+    </footer>
+
+    <script src="/js/main.js"></script>
+</body>
+</html>

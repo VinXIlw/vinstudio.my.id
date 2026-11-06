@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cerita - TKJ Connect</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <span class="logo-icon">💻</span>
+                <span class="logo-text">TKJ Connect</span>
+            </div>
+            <%- include('partials/nav', { currentPage: 'stories', user: locals.user }) %>
+            <button class="mobile-menu-btn"><span></span><span></span><span></span></button>
+        </div>
+    </header>
+
+    <main>
+        <section class="stories-page">
+            <div class="container">
+                <div class="page-header">
+                    <h1>📖 Cerita Kelas TKJ</h1>
+                    <% if (user) { %>
+                        <a href="/stories/add" class="btn btn-primary btn-sm">+ Tambah Cerita</a>
+                    <% } %>
+                </div>
+
+                <% if (stories.length > 0) { %>
+                <div class="story-grid">
+                    <% stories.forEach(story => { %>
+                    <article class="story-card">
+                        <div class="story-header">
+                            <h3><%= story.title %></h3>
+                            <span class="badge">Oleh <%= story.username %></span>
+                            <span class="badge"><%= new Date(story.created_at).toLocaleDateString('id-ID') %></span>
+                        </div>
+                        <p><%= story.content %></p>
+                        <% if (user && story.user_id === user.id) { %>
+                            <a href="/stories/delete/<%= story.id %>" class="btn-delete btn-sm" onclick="return confirm('Hapus cerita ini?')">Hapus</a>
+                        <% } %>
+                    </article>
+                    <% }) %>
+                </div>
+                <% } else { %>
+                <div class="empty-state">
+                    <p>Belum ada cerita. <% if (user) { %><a href="/stories/add">Buat cerita pertama</a><% } else { %><a href="/login?r=/stories/add">Login untuk menambah cerita</a><% } %></p>
+                </div>
+                <% } %>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; <%= new Date().getFullYear() %> TKJ Profile Web App</p>
+        </div>
+    </footer>
+
+    <script src="/js/main.js"></script>
+</body>
+</html>

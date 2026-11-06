@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tambah Album - TKJ Connect</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <span class="logo-icon">💻</span>
+                <span class="logo-text">TKJ Connect</span>
+            </div>
+            <%- include('partials/nav', { currentPage: 'albums', user: locals.user }) %>
+            <button class="mobile-menu-btn"><span></span><span></span><span></span></button>
+        </div>
+    </header>
+
+    <main>
+        <section class="form-page">
+            <div class="container">
+                <div class="form-card">
+                    <h2>Tambah Album Baru</h2>
+                    <% if (typeof error !== 'undefined' && error) { %>
+                        <div class="alert alert-error"><%= error %></div>
+                    <% } %>
+                    <form action="/albums/add" method="POST" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label for="title">Judul Album <span class="required">*</span></label>
+                            <input type="text" id="title" name="title" required placeholder="Misal: Kunjungan Industri Telkom">
+                        </div>
+                        <div class="form-group">
+                            <label for="description">Deskripsi</label>
+                            <textarea id="description" name="description" rows="3" placeholder="Ceritakan tentang kegiatan ini..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="photo">Foto Sampul</label>
+                            <input type="file" id="photo" name="photo" accept="image/*">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Simpan Album</button>
+                    </form>
+                    <p style="text-align:center; margin-top:1rem;">
+                        <a href="/albums">← Kembali ke Album</a>
+                    </p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; <%= new Date().getFullYear() %> TKJ Profile Web App</p>
+        </div>
+    </footer>
+
+    <script src="/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daftar - TKJ Connect</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <main>
+        <section class="auth-page">
+            <div class="auth-card">
+                <div class="auth-header">
+                    <div class="logo">
+                        <span class="logo-icon">💻</span>
+                        <span class="logo-text">TKJ Connect</span>
+                    </div>
+                    <h2>Buat Akun Baru</h2>
+                    <p>Daftar untuk mulai menambah album dan cerita</p>
+                </div>
+
+                <% if (msg) { %>
+                    <div class="alert alert-info"><%= msg %></div>
+                <% } %>
+
+                <form action="/register" method="POST">
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" required autofocus
+                               placeholder="nama@email.com" autocomplete="email">
+                    </div>
+                    <div class="form-group">
+                        <label for="display_name">Nama Tampilan</label>
+                        <input type="text" id="display_name" name="display_name" maxlength="60"
+                               placeholder="Contoh: Budi Santoso" autocomplete="name">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" required placeholder="Minimal 4 karakter" autocomplete="new-password">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm">Konfirmasi Password</label>
+                        <input type="password" id="confirm" name="confirm" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Daftar</button>
+                </form>
+
+                <p class="auth-footer">
+                    Sudah punya akun? <a href="/login">Masuk di sini</a>
+                </p>
+                <p style="text-align:center; margin-top:1rem;">
+                    <a href="/">Kembali ke Beranda</a>
+                </p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; <%= new Date().getFullYear() %> TKJ Profile Web App</p>
+        </div>
+    </footer>
+</body>
+</html>

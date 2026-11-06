@@ -1,0 +1,22 @@
+{
+  "name": "tkj-profile-app",
+  "version": "1.0.0",
+  "description": "Web profile untuk kelas Teknik Komputer dan Jaringan",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node smoke-test.js",
+    "test:upload": "node test-upload.js",
+    "cleanup": "node cleanup-test-data.js",
+    "profile": "node edit-profile.js",
+    "make-admin": "node make-admin.js",
+        "test:admin": "node admin-test.js"
+  },
+  "dependencies": {
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "multer": "^1.4.5-lts.1",
+    "sqlite3": "^5.1.7"
+  }
+}
