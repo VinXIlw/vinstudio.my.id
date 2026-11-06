@@ -1,0 +1,26 @@
+# ============================================================
+# VinStudio / Node.js Application Apache Configuration
+# ============================================================
+
+# 1. Matikan penampilan daftar isi direktori (mencegah "Index of /")
+Options -Indexes
+
+# 2. Lindungi file sensitif dari akses langsung browser
+<FilesMatch "(\.env|\.db|\.sqlite|\.log|\.err|\.json|\.yml|\.yaml|server\.js|admin-routes\.js|db-migrate\.js|profile-sync\.js|make-admin\.js)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# 3. Lindungi folder tersembunyi seperti .git, .github
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule "(^|/)\.(?!well-known)" - [F]
+</IfModule>
+
+# 4. UTF-8 Default
+AddDefaultCharset UTF-8

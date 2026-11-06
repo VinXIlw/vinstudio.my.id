@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daftar - TKJ Connect</title>
+    <title>Daftar Akun Baru - VinStudio</title>
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
@@ -12,11 +12,11 @@
             <div class="auth-card">
                 <div class="auth-header">
                     <div class="logo">
-                        <span class="logo-icon">💻</span>
-                        <span class="logo-text">TKJ Connect</span>
+                        <span class="logo-icon">&#128187;</span>
+                        <span class="logo-text">VinStudio</span>
                     </div>
                     <h2>Buat Akun Baru</h2>
-                    <p>Daftar untuk mulai menambah album dan cerita</p>
+                    <p>Bergabung untuk mulai membagikan foto, karya, dan cerita</p>
                 </div>
 
                 <% if (msg) { %>
@@ -32,7 +32,7 @@
                     <div class="form-group">
                         <label for="display_name">Nama Tampilan</label>
                         <input type="text" id="display_name" name="display_name" maxlength="60"
-                               placeholder="Contoh: Budi Santoso" autocomplete="name">
+                               placeholder="Contoh: Kelvin" autocomplete="name">
                     </div>
                     <div class="form-group">
                         <label for="password">Password</label>
@@ -42,14 +42,14 @@
                         <label for="confirm">Konfirmasi Password</label>
                         <input type="password" id="confirm" name="confirm" required>
                     </div>
-                    <button type="submit" class="btn btn-primary btn-block">Daftar</button>
+                    <button type="submit" class="btn btn-primary btn-block">Daftar Akun</button>
                 </form>
 
                 <p class="auth-footer">
                     Sudah punya akun? <a href="/login">Masuk di sini</a>
                 </p>
                 <p style="text-align:center; margin-top:1rem;">
-                    <a href="/">Kembali ke Beranda</a>
+                    <a href="/">&larr; Kembali ke Beranda</a>
                 </p>
             </div>
         </section>
@@ -57,7 +57,7 @@
 
     <footer>
         <div class="container">
-            <p>&copy; <%= new Date().getFullYear() %> TKJ Profile Web App</p>
+            <p>&copy; <%= new Date().getFullYear() %> VinStudio App. Hak cipta dilindungi.</p>
         </div>
     </footer>
 </body>

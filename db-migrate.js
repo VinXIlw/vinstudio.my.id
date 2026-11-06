@@ -1,18 +1,13 @@
 /*
   db-migrate.js
-  Migrasi skema tabel `users` dari identitas berbasis `username` menjadi
-  berbasis `email` + `display_name`.
-
-  - `email`       : identitas login (unik)
-  - `display_name`: nama tampilan yang bisa diganti sendiri oleh pemiliknya
-  - `last_login_at`: waktu login terakhir (dipakai panel admin)
-  - `is_banned`   : akun dinonaktifkan admin (1 = dinonaktifkan)
-
-  DisINI juga dibuat tabel `login_logs` untuk mencatat riwayat aktivitas login.
-
-  Modul ini dipakai bersama oleh `server.js` dan `make-admin.js` supaya
-  skema database selalu konsisten.
+  Migrasi skema database SQLite:
+  - users (email, display_name, password bcrypt, role, is_banned, last_login_at, created_at)
+  - login_logs (riwayat login & audit log)
+  - comments (komentar untuk album & cerita)
+  - likes (suka untuk album & cerita)
 */
+const bcrypt = require('bcryptjs');
+
 const CREATE_USERS = `CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT UNIQUE NOT NULL,
@@ -24,7 +19,6 @@ const CREATE_USERS = `CREATE TABLE IF NOT EXISTS users (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )`;
 
-// Riwayat aktivitas login (dipakai panel admin)
 const CREATE_LOGIN_LOGS = `CREATE TABLE IF NOT EXISTS login_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
@@ -37,18 +31,35 @@ const CREATE_LOGIN_LOGS = `CREATE TABLE IF NOT EXISTS login_logs (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )`;
 
-// Kolom tambahan yang perlu ditambahkan ke tabel users lama
+const CREATE_COMMENTS = `CREATE TABLE IF NOT EXISTS comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    target_type TEXT NOT NULL,
+    target_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(id)
+)`;
+
+const CREATE_LIKES = `CREATE TABLE IF NOT EXISTS likes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    target_type TEXT NOT NULL,
+    target_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, target_type, target_id),
+    FOREIGN KEY(user_id) REFERENCES users(id)
+)`;
+
 const EXTRA_COLUMNS = [
     { name: 'is_banned',    ddl: "ALTER TABLE users ADD COLUMN is_banned INTEGER DEFAULT 0" },
     { name: 'last_login_at', ddl: "ALTER TABLE users ADD COLUMN last_login_at DATETIME" }
 ];
 
-// Kolom tambahan untuk tabel login_logs lama
 const LOG_COLUMNS = [
     { name: 'detail', ddl: "ALTER TABLE login_logs ADD COLUMN detail TEXT" }
 ];
 
-// Jalankan daftar statement satu per satu (berurutan, bukan paralel)
 function runSeries(db, statements, done) {
     let i = 0;
     function next(err) {
@@ -63,22 +74,54 @@ function runSeries(db, statements, done) {
 }
 
 /**
- * Pastikan tabel `users` memakai skema email + display_name (+ kolom admin),
- * dan tabel `login_logs` sudah ada.
- * @param {object} db  koneksi sqlite3
- * @param {function} done callback(err)
+ * Migrasi password polos yang belum di-hash dengan bcrypt
  */
+function upgradePlainPasswords(db, callback) {
+    db.all("SELECT id, password FROM users", (err, rows) => {
+        if (err || !rows || rows.length === 0) return callback(null);
+        const unhashed = rows.filter(r => !r.password || !r.password.startsWith('$2'));
+        if (unhashed.length === 0) return callback(null);
+
+        let count = 0;
+        let doneCount = 0;
+        unhashed.forEach(u => {
+            const hashed = bcrypt.hashSync(u.password, 10);
+            db.run("UPDATE users SET password = ? WHERE id = ?", [hashed, u.id], (updErr) => {
+                doneCount++;
+                if (!updErr) count++;
+                if (doneCount === unhashed.length) {
+                    console.log(`  [SECURITY] Berhasil mengamankan ${count} password pengguna dengan enkripsi bcrypt.`);
+                    callback(null);
+                }
+            });
+        });
+    });
+}
+
 function migrateUsers(db, done) {
     db.all("PRAGMA table_info(users)", (err, cols) => {
         if (err) return done(err);
 
         const names = (cols || []).map(c => c.name);
 
-        // Tabel belum pernah dibuat -> cukup buat dengan skema baru
+        function ensureExtraTables(cb) {
+            db.run(CREATE_COMMENTS, (e1) => {
+                if (e1) return cb(e1);
+                db.run(CREATE_LIKES, (e2) => {
+                    if (e2) return cb(e2);
+                    upgradePlainPasswords(db, cb);
+                });
+            });
+        }
+
+        // Tabel users belum pernah dibuat -> buat semua tabel
         if (names.length === 0) {
             return db.run(CREATE_USERS, (e) => {
                 if (e) return done(e);
-                db.run(CREATE_LOGIN_LOGS, (e2) => done(e2 || null));
+                db.run(CREATE_LOGIN_LOGS, (e2) => {
+                    if (e2) return done(e2);
+                    ensureExtraTables(done);
+                });
             });
         }
 
@@ -111,7 +154,10 @@ function migrateUsers(db, done) {
             ];
             return runSeries(db, steps, (e) => {
                 if (e) return done(e);
-                db.run(CREATE_LOGIN_LOGS, (e2) => done(e2 || null));
+                db.run(CREATE_LOGIN_LOGS, (e2) => {
+                    if (e2) return done(e2);
+                    ensureExtraTables(done);
+                });
             });
         }
 
@@ -124,25 +170,22 @@ function migrateUsers(db, done) {
             if (e) return done(e);
             db.run(CREATE_LOGIN_LOGS, (e2) => {
                 if (e2) return done(e2);
-                // Pastikan tabel log punya kolom `detail` (untuk log versi lama)
                 db.all("PRAGMA table_info(login_logs)", (e3, logCols) => {
                     if (e3) return done(e3);
                     const logNames = (logCols || []).map(c => c.name);
                     const logSteps = LOG_COLUMNS
                         .filter(c => !logNames.includes(c.name))
                         .map(c => c.ddl);
-                    runSeries(db, logSteps, (e4) => done(e4 || null));
+                    runSeries(db, logSteps, (e4) => {
+                        if (e4) return done(e4);
+                        ensureExtraTables(done);
+                    });
                 });
             });
         });
     });
 }
 
-/**
- * Catat aktivitas login ke tabel `login_logs`.
- * @param {object} db koneksi sqlite3
- * @param {object} data { user_id, email, display_name, action, detail, ip, user_agent }
- */
 function logActivity(db, data) {
     try {
         db.run(
@@ -157,11 +200,18 @@ function logActivity(db, data) {
                 data.ip || '',
                 String(data.user_agent || '').slice(0, 255)
             ],
-            () => { /* pencatatan log tidak boleh menggagalkan login */ }
+            () => {}
         );
     } catch (e) {
         console.error('[db-migrate] Gagal menulis log aktivitas:', e.message);
     }
 }
 
-module.exports = { migrateUsers, logActivity, CREATE_USERS, CREATE_LOGIN_LOGS };
+module.exports = {
+    migrateUsers,
+    logActivity,
+    CREATE_USERS,
+    CREATE_LOGIN_LOGS,
+    CREATE_COMMENTS,
+    CREATE_LIKES
+};

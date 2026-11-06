@@ -15,3 +15,16 @@ jobs:
           protocol: ftps
           port: 21
           server-dir: ./
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/*.db
+            **/*.log
+            **/*.err
+            **/.env
+            **/*test*
+            **/cleanup*
+            **/setup*
+            **/run-*
+            **/verify-*

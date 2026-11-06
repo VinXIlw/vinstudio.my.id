@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Aktivitas - Panel Admin</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <span class="logo-icon">&#9881;</span>
+                <span class="logo-text">VinStudio Admin</span>
+            </div>
+            <%- include('partials/nav', { currentPage: 'admin', user: locals.user }) %>
+            <button class="mobile-menu-btn" aria-label="Buka menu"><span></span><span></span><span></span></button>
+        </div>
+    </header>
+
+    <main>
+        <div class="page-header page-anim">
+            <div>
+                <h1>&#128203; Log Aktivitas &amp; Keamanan</h1>
+                <p class="page-subtitle">Riwayat autentikasi, aktivitas pengguna, dan audit keamanan sistem.</p>
+            </div>
+            <div>
+                <a href="/admin" class="btn btn-outline">&larr; Kembali ke Panel Admin</a>
+            </div>
+        </div>
+
+        <% if (msg) { %>
+            <div class="alert alert-success"><%= msg %></div>
+        <% } %>
+        <% if (err) { %>
+            <div class="alert alert-error"><%= err %></div>
+        <% } %>
+
+        <div class="admin-card page-anim">
+            <div class="toolbar">
+                <form method="GET" action="/admin/logs" class="inline-form" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
+                    <select name="action" onchange="this.form.submit()" aria-label="Filter aksi">
+                        <option value="">Semua Aksi</option>
+                        <option value="login" <%= filters.action === 'login' ? 'selected' : '' %>>Login Berhasil</option>
+                        <option value="login-gagal" <%= filters.action === 'login-gagal' ? 'selected' : '' %>>Login Gagal</option>
+                        <option value="login-ditolak" <%= filters.action === 'login-ditolak' ? 'selected' : '' %>>Login Ditolak (Banned)</option>
+                        <option value="register" <%= filters.action === 'register' ? 'selected' : '' %>>Pendaftaran Akun</option>
+                        <option value="admin-login" <%= filters.action === 'admin-login' ? 'selected' : '' %>>Admin Login</option>
+                        <option value="admin:simpan-profil" <%= filters.action === 'admin:simpan-profil' ? 'selected' : '' %>>Ubah Profil</option>
+                        <option value="admin:ubah-peran" <%= filters.action === 'admin:ubah-peran' ? 'selected' : '' %>>Ubah Peran</option>
+                    </select>
+
+                    <select name="limit" onchange="this.form.submit()" aria-label="Batas baris">
+                        <option value="50" <%= filters.limit === 50 ? 'selected' : '' %>>50 Terakhir</option>
+                        <option value="100" <%= filters.limit === 100 ? 'selected' : '' %>>100 Terakhir</option>
+                        <option value="200" <%= filters.limit === 200 ? 'selected' : '' %>>200 Terakhir</option>
+                    </select>
+
+                    <% if (filters.action) { %>
+                        <a href="/admin/logs" class="btn btn-ghost btn-sm">&#10005; Reset Filter</a>
+                    <% } %>
+                </form>
+                <span class="admin-hint" style="margin-left:auto;"><%= logs.length %> log ditemukan</span>
+            </div>
+
+            <% if (!logs.length) { %>
+                <div class="empty-state">
+                    <span class="empty-icon">&#128203;</span>
+                    <p>Tidak ada riwayat log aktivitas yang sesuai.</p>
+                </div>
+            <% } else { %>
+                <div class="table-wrapper">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th style="width:22%;">Waktu</th>
+                                <th style="width:18%;">Pengguna</th>
+                                <th style="width:18%;">Aksi</th>
+                                <th style="width:22%;">Detail</th>
+                                <th style="width:20%;">IP &amp; Device</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% logs.forEach(function (l) { %>
+                                <tr>
+                                    <td>
+                                        <strong><%= fmtDateTime(l.created_at) %></strong>
+                                        <small class="admin-hint"><%= timeAgo(l.created_at) %></small>
+                                    </td>
+                                    <td>
+                                        <div class="user-cell">
+                                            <span class="user-avatar <%= avatarClass(l.display_name || l.email) %>" style="width:30px;height:30px;font-size:0.75rem;">
+                                                <%= initials(l.display_name || l.email) %>
+                                            </span>
+                                            <div class="user-info">
+                                                <div class="user-name" style="font-size:0.85rem;"><%= l.display_name || 'Tamu' %></div>
+                                                <span class="user-email" style="font-size:0.72rem;"><%= l.email || '-' %></span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <% let badgeClass = 'role-user'; %>
+                                        <% if (l.action === 'login' || l.action === 'admin-login') badgeClass = 'badge btn-success'; %>
+                                        <% if (l.action.indexOf('gagal') !== -1 || l.action.indexOf('ditolak') !== -1) badgeClass = 'role-banned'; %>
+                                        <span class="role-badge <%= badgeClass %>" style="font-size:0.72rem;">
+                                            <%= l.action %>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="cell-note"><%= l.detail || '-' %></span>
+                                    </td>
+                                    <td>
+                                        <span class="cell-note">
+                                            <strong><%= l.ip || '-' %></strong>
+                                            <br>
+                                            <small class="admin-hint" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="<%= l.user_agent %>">
+                                                <%= l.user_agent ? l.user_agent.substring(0, 35) + '...' : '-' %>
+                                            </small>
+                                        </span>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            <% } %>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; <%= new Date().getFullYear() %> VinStudio App. Hak cipta dilindungi.</p>
+        </div>
+    </footer>
+
+    <script src="/js/main.js"></script>
+</body>
+</html>

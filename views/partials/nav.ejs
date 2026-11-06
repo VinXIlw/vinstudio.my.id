@@ -1,7 +1,7 @@
 <nav class="main-nav">
     <ul>
         <li><a href="/" class="<%= locals.currentPage === 'home' ? 'active' : '' %>">Beranda</a></li>
-        <li><a href="/profile" class="<%= locals.currentPage === 'profile' ? 'active' : '' %>">Profil Kelas</a></li>
+        <li><a href="/profile" class="<%= locals.currentPage === 'profile' ? 'active' : '' %>">Profil</a></li>
         <li><a href="/albums" class="<%= locals.currentPage === 'albums' ? 'active' : '' %>">Album</a></li>
         <li><a href="/stories" class="<%= locals.currentPage === 'stories' ? 'active' : '' %>">Cerita</a></li>
         <% if (locals.user) { %>

@@ -4,57 +4,59 @@
     - GET  /admin/login             -> halaman login admin
     - POST /admin/login             -> proses login admin (harus role admin)
     - GET  /admin                   -> panel admin (statistik + kelola pengguna)
-    - GET  /admin/logs              -> riwayat aktivitas login
+    - GET  /admin/logs              -> riwayat aktivitas login & audit
     - POST /admin/profile           -> simpan perubahan profil kelas (teks + foto)
     - POST /admin/users             -> buat akun baru dari panel admin
     - POST /admin/users/:id/role    -> ubah peran pengguna (admin / user)
     - POST /admin/users/:id/rename  -> ubah nama tampilan pengguna
-    - POST /admin/users/:id/password-> reset password pengguna
+    - POST /admin/users/:id/password-> reset password pengguna (bcrypt)
     - POST /admin/users/:id/ban     -> nonaktifkan / aktifkan akun
     - POST /admin/users/:id/delete  -> hapus pengguna beserta kontennya
-    - POST /admin/password          -> ganti password admin sendiri
-
-  Semua rute (kecuali /admin/login) dilindungi middleware requireAdmin.
-  Perubahan profil juga dibalikkan ke DEFAULT_PROFILE di server.js agar data
-  file dan database tidak pernah berbeda.
+    - POST /admin/password          -> ganti password admin sendiri (bcrypt)
 */
 const path = require('path');
 const fs = require('fs');
+const bcrypt = require('bcryptjs');
 const { logActivity } = require('./db-migrate');
 
 const PROFILE_FIELDS = ['class_name', 'description', 'teacher_name', 'school_year', 'vision', 'mission'];
 const DEFAULT_PHOTO = 'tkj-logo.png';
 
-// Urutan pengurutan tabel pengguna ( whitelist agar aman dari injeksi SQL )
+// Urutan pengurutan tabel pengguna (whitelist agar aman dari injeksi SQL)
 const SORT_OPTIONS = {
     terbaru:  'u.created_at DESC',
     terlama:  'u.created_at ASC',
     nama:     'u.display_name COLLATE NOCASE ASC',
     email:    'u.email COLLATE NOCASE ASC',
-    Peran:    "CASE u.role WHEN 'admin' THEN 0 ELSE 1 END, u.display_name COLLATE NOCASE ASC",
+    peran:    "CASE u.role WHEN 'admin' THEN 0 ELSE 1 END, u.display_name COLLATE NOCASE ASC",
     aktivitas:'CASE WHEN u.last_login_at IS NULL THEN 1 ELSE 0 END, u.last_login_at DESC',
     konten:   '(album_count + story_count) DESC, u.display_name COLLATE NOCASE ASC'
 };
 
+function verifyPassword(inputPassword, storedPassword) {
+    if (!storedPassword || !inputPassword) return false;
+    if (storedPassword.startsWith('$2')) {
+        return bcrypt.compareSync(inputPassword, storedPassword);
+    }
+    return inputPassword === storedPassword;
+}
+
 function registerAdminRoutes(app, deps) {
     const { db, upload, requireAdmin, currentUser, writeProfileToServerFile } = deps;
 
-    // Kembali ke panel admin dengan pesan (sukses = msg, gagal = err)
     function back(res, key, message, tab) {
         const target = '/admin?' + key + '=' + encodeURIComponent(message) + (tab ? '&tab=' + tab : '');
         return res.redirect(target);
     }
 
-    // Hapus file foto unggahan lama bila memang file di folder uploads/
     function removeUpload(filename) {
         if (!filename || filename === DEFAULT_PHOTO || filename === 'no-image.png') return;
         try {
             const p = path.join(__dirname, 'uploads', filename);
             if (fs.existsSync(p)) fs.unlinkSync(p);
-        } catch (e) { /* file mungkin sudah tidak ada, abaikan */ }
+        } catch (e) {}
     }
 
-    // Catat aksi admin ke tabel login_logs
     function logAdmin(req, action, detail) {
         logActivity(db, {
             user_id: req.session.userId,
@@ -67,7 +69,6 @@ function registerAdminRoutes(app, deps) {
         });
     }
 
-    // Bungkus sqlite3 dalam Promise supaya lebih mudah ditulis
     function qAll(sql, params) {
         return new Promise(resolve => db.all(sql, params || [], (err, rows) => resolve(err ? [] : (rows || []))));
     }
@@ -75,7 +76,6 @@ function registerAdminRoutes(app, deps) {
         return new Promise(resolve => db.get(sql, params || [], (err, row) => resolve(err ? null : (row || null))));
     }
 
-    // Ambil data lengkap daftar pengguna (jumlah konten, waktu login, status)
     async function loadUsers(q, role, sort) {
         const like = '%' + q + '%';
         const orderBy = SORT_OPTIONS[sort] || SORT_OPTIONS.terbaru;
@@ -91,16 +91,17 @@ function registerAdminRoutes(app, deps) {
         );
     }
 
-    // Hitung statistik panel admin
     async function loadStats() {
-        const [totals, loginToday, newWeek, banned, albumRow, storyRow, activeWeek] = await Promise.all([
+        const [totals, loginToday, newWeek, banned, albumRow, storyRow, activeWeek, commentRow, likeRow] = await Promise.all([
             qGet("SELECT COUNT(*) AS total, SUM(CASE WHEN role = 'admin' THEN 1 ELSE 0 END) AS admins FROM users"),
             qGet("SELECT COUNT(*) AS c FROM login_logs WHERE action = 'login' AND date(created_at) = date('now', 'localtime')"),
             qGet("SELECT COUNT(*) AS c FROM users WHERE created_at >= datetime('now', '-7 days')"),
             qGet("SELECT COUNT(*) AS c FROM users WHERE is_banned = 1"),
             qGet("SELECT COUNT(*) AS c FROM albums"),
             qGet("SELECT COUNT(*) AS c FROM stories"),
-            qGet("SELECT COUNT(DISTINCT user_id) AS c FROM login_logs WHERE action = 'login' AND created_at >= datetime('now', '-7 days')")
+            qGet("SELECT COUNT(DISTINCT user_id) AS c FROM login_logs WHERE action = 'login' AND created_at >= datetime('now', '-7 days')"),
+            qGet("SELECT COUNT(*) AS c FROM comments"),
+            qGet("SELECT COUNT(*) AS c FROM likes")
         ]);
         return {
             totalUsers:   (totals && totals.total) || 0,
@@ -111,7 +112,9 @@ function registerAdminRoutes(app, deps) {
             newThisWeek:  (newWeek && newWeek.c) || 0,
             activeWeek:   (activeWeek && activeWeek.c) || 0,
             totalAlbums:  (albumRow && albumRow.c) || 0,
-            totalStories: (storyRow && storyRow.c) || 0
+            totalStories: (storyRow && storyRow.c) || 0,
+            totalComments:(commentRow && commentRow.c) || 0,
+            totalLikes:   (likeRow && likeRow.c) || 0
         };
     }
 
@@ -128,8 +131,12 @@ function registerAdminRoutes(app, deps) {
             return res.render('admin-login', { msg: '', error: 'Email dan password wajib diisi.' });
         }
 
-        db.get("SELECT * FROM users WHERE email = ? AND password = ?", [email, password], (err, user) => {
-            if (err || !user) {
+        db.get("SELECT * FROM users WHERE email = ?", [email], (err, user) => {
+            if (err || !user || !verifyPassword(password, user.password)) {
+                logActivity(db, {
+                    email, display_name: '', action: 'admin-login-gagal',
+                    ip: req.ip, user_agent: req.get('user-agent')
+                });
                 return res.render('admin-login', { msg: '', error: 'Email atau password salah.' });
             }
             if (user.role !== 'admin') {
@@ -139,15 +146,21 @@ function registerAdminRoutes(app, deps) {
                 });
             }
 
-            // Nama tampilan opsional untuk admin (bisa mengganti nama sendiri)
+            // Migrasi password ke bcrypt jika masih plain text
+            if (!user.password.startsWith('$2')) {
+                const newHash = bcrypt.hashSync(password, 10);
+                db.run("UPDATE users SET password = ? WHERE id = ?", [newHash, user.id]);
+            }
+
             const newName = String(req.body.display_name || '').trim();
             if (newName && newName !== user.display_name) {
-                db.run("UPDATE users SET display_name = ? WHERE id = ?", [newName, user.id], (e2) => {
+                db.run("UPDATE users SET display_name = ?, last_login_at = CURRENT_TIMESTAMP WHERE id = ?", [newName, user.id], (e2) => {
                     if (e2) return res.render('admin-login', { msg: '', error: 'Gagal menyimpan nama tampilan.' });
                     req.session.userId = user.id;
                     req.session.email = user.email;
                     req.session.displayName = newName;
                     req.session.role = user.role;
+                    logAdmin(req, 'admin-login', 'Berhasil login sebagai admin');
                     res.redirect('/admin');
                 });
                 return;
@@ -157,7 +170,10 @@ function registerAdminRoutes(app, deps) {
             req.session.email = user.email;
             req.session.displayName = user.display_name;
             req.session.role = user.role;
-            res.redirect('/admin');
+            db.run("UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?", [user.id], () => {
+                logAdmin(req, 'admin-login', 'Berhasil login sebagai admin');
+                res.redirect('/admin');
+            });
         });
     });
 
@@ -171,7 +187,7 @@ function registerAdminRoutes(app, deps) {
             qGet("SELECT * FROM profiles WHERE id = 1"),
             loadUsers(q, role, sort),
             loadStats(),
-            qAll("SELECT * FROM login_logs ORDER BY id DESC LIMIT 8")
+            qAll("SELECT * FROM login_logs ORDER BY id DESC LIMIT 10")
         ]);
 
         res.render('admin', {
@@ -186,7 +202,7 @@ function registerAdminRoutes(app, deps) {
         });
     });
 
-    // --- Riwayat aktivitas login ---
+    // --- Riwayat aktivitas log ---
     app.get('/admin/logs', requireAdmin, async (req, res) => {
         const action = String(req.query.action || '').trim();
         const limit  = Math.min(parseInt(req.query.limit, 10) || 50, 200);
@@ -231,18 +247,14 @@ function registerAdminRoutes(app, deps) {
             const resetPhoto = String(body.reset_photo || '') === '1';
 
             if (resetPhoto) {
-                // Kembalikan ke logo bawaan dan hapus file unggahan lama
                 removeUpload(photo);
                 photo = DEFAULT_PHOTO;
-                // Buang juga file baru yang mungkin ikut terkirim
                 if (req.file) removeUpload(req.file.filename);
             } else if (req.file) {
                 removeUpload(photo);
                 photo = req.file.filename;
             }
 
-            // Urutan field harus sama persis dengan urutan nilai (params).
-            // `photo` ikut disimpan, bukan hanya dibaca.
             const fields = PROFILE_FIELDS.concat(['photo']);
             const setClauses = fields.map(k => k + ' = ?').join(', ');
             const params = fields.map(f => (f === 'photo' ? photo : values[f]));
@@ -252,10 +264,7 @@ function registerAdminRoutes(app, deps) {
                 params,
                 (err2) => {
                     if (err2) return back(res, 'err', 'Gagal menyimpan profil kelas.');
-
-                    // Sinkronkan juga ke DEFAULT_PROFILE di server.js
                     writeProfileToServerFile(Object.assign({}, values, { photo: photo }));
-
                     logAdmin(req, 'admin:simpan-profil', 'Foto: ' + photo);
                     back(res, 'msg', 'Profil kelas berhasil disimpan.', 'profil');
                 }
@@ -287,9 +296,11 @@ function registerAdminRoutes(app, deps) {
             return back(res, 'err', 'Email sudah digunakan oleh akun lain.', 'pengguna');
         }
 
+        const hashedPassword = bcrypt.hashSync(password, 10);
+
         db.run(
             "INSERT INTO users (email, display_name, password, role) VALUES (?, ?, ?, ?)",
-            [email, finalName, password, role],
+            [email, finalName, hashedPassword, role],
             function(err) {
                 if (err) return back(res, 'err', 'Gagal membuat akun baru.', 'pengguna');
                 logAdmin(req, 'admin:buat-akun', finalName + ' <' + email + '> sebagai ' + role);
@@ -336,7 +347,9 @@ function registerAdminRoutes(app, deps) {
         if (isNaN(id)) return back(res, 'err', 'ID pengguna tidak valid.', 'pengguna');
         if (newPassword.length < 4) return back(res, 'err', 'Password baru minimal 4 karakter.', 'pengguna');
 
-        db.run("UPDATE users SET password = ? WHERE id = ?", [newPassword, id], (err) => {
+        const hashedPassword = bcrypt.hashSync(newPassword, 10);
+
+        db.run("UPDATE users SET password = ? WHERE id = ?", [hashedPassword, id], (err) => {
             if (err) return back(res, 'err', 'Gagal me-reset password.', 'pengguna');
             logAdmin(req, 'admin:reset-password', 'user #' + id);
             back(res, 'msg', 'Password pengguna berhasil di-reset.', 'pengguna');
@@ -362,7 +375,7 @@ function registerAdminRoutes(app, deps) {
         });
     });
 
-    // --- Hapus Pengguna (beserta album dan ceritanya) ---
+    // --- Hapus Pengguna (beserta album, cerita, dan komentarnya) ---
     app.post('/admin/users/:id/delete', requireAdmin, (req, res) => {
         const id = parseInt(req.params.id, 10);
         if (isNaN(id)) return back(res, 'err', 'ID pengguna tidak valid.', 'pengguna');
@@ -372,6 +385,8 @@ function registerAdminRoutes(app, deps) {
             if (err || !row) return back(res, 'err', 'Pengguna tidak ditemukan.', 'pengguna');
 
             db.serialize(() => {
+                db.run("DELETE FROM comments WHERE user_id = ?", [id]);
+                db.run("DELETE FROM likes WHERE user_id = ?", [id]);
                 db.run("DELETE FROM albums WHERE user_id = ?", [id]);
                 db.run("DELETE FROM stories WHERE user_id = ?", [id]);
                 db.run("DELETE FROM users WHERE id = ?", [id], (e2) => {
@@ -395,11 +410,12 @@ function registerAdminRoutes(app, deps) {
         }
 
         db.get("SELECT password FROM users WHERE id = ?", [req.session.userId], (err, u) => {
-            if (err || !u || u.password !== String(old_password)) {
+            if (err || !u || !verifyPassword(old_password, u.password)) {
                 return back(res, 'err', 'Password lama salah.', 'keamanan');
             }
 
-            db.run("UPDATE users SET password = ? WHERE id = ?", [new_password, req.session.userId], (e2) => {
+            const hashedPassword = bcrypt.hashSync(new_password, 10);
+            db.run("UPDATE users SET password = ? WHERE id = ?", [hashedPassword, req.session.userId], (e2) => {
                 if (e2) return back(res, 'err', 'Gagal mengganti password.', 'keamanan');
                 logAdmin(req, 'admin:ganti-password', 'password admin diubah');
                 back(res, 'msg', 'Password berhasil diubah.', 'keamanan');

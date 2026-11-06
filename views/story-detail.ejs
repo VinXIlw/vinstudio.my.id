@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= story.title %> - Cerita</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .story-article {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: 2.5rem;
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 2rem;
+        }
+        .story-content-body {
+            font-size: 1.12rem;
+            line-height: 1.85;
+            color: var(--text-soft);
+            margin-top: 1.75rem;
+            white-space: pre-line;
+            letter-spacing: 0.01em;
+        }
+        .like-bar {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 2rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--border);
+        }
+        .like-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.55rem 1.2rem;
+            border-radius: var(--radius-pill);
+            border: 1.5px solid var(--border-strong);
+            background: var(--white);
+            color: var(--text-soft);
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all var(--t) var(--ease);
+        }
+        .like-btn:hover {
+            border-color: #f43f5e;
+            color: #f43f5e;
+            background: #fff1f2;
+            transform: scale(1.04);
+        }
+        .like-btn.liked {
+            background: #ffe4e6;
+            border-color: #f43f5e;
+            color: #e11d48;
+        }
+        .comments-section {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 1.75rem 2rem;
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 2rem;
+        }
+        .comment-item {
+            display: flex;
+            gap: 1rem;
+            padding: 1.1rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .comment-item:last-child {
+            border-bottom: none;
+        }
+        .comment-content-box {
+            flex: 1;
+        }
+        .comment-author-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.35rem;
+        }
+        .comment-text {
+            color: var(--text-soft);
+            line-height: 1.6;
+            word-break: break-word;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <span class="logo-icon">&#128214;</span>
+                <span class="logo-text">VinStudio</span>
+            </div>
+            <%- include('partials/nav', { currentPage: 'stories', user: locals.user }) %>
+            <button class="mobile-menu-btn"><span></span><span></span><span></span></button>
+        </div>
+    </header>
+
+    <main>
+        <div class="container" style="max-width:880px;">
+            <div style="margin-bottom:1.25rem;">
+                <a href="/stories" class="btn btn-outline btn-sm">&larr; Kembali ke Semua Cerita</a>
+            </div>
+
+            <% if (msg) { %>
+                <div class="alert alert-success"><%= msg %></div>
+            <% } %>
+            <% if (err) { %>
+                <div class="alert alert-error"><%= err %></div>
+            <% } %>
+
+            <!-- Artikel Cerita -->
+            <article class="story-article page-anim">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
+                    <div>
+                        <h1 style="font-size:2.2rem;line-height:1.25;color:var(--dark);letter-spacing:-0.02em;margin-bottom:0.75rem;">
+                            <%= story.title %>
+                        </h1>
+                        <div class="user-cell" style="margin-top:0.75rem;">
+                            <span class="user-avatar <%= avatarClass(story.username) %>" style="width:40px;height:40px;">
+                                <%= initials(story.username) %>
+                            </span>
+                            <div class="user-info">
+                                <div class="user-name"><%= story.username %></div>
+                                <span class="user-email"><%= fmtDateTime(story.created_at) %> &middot; <%= timeAgo(story.created_at) %></span>
+                            </div>
+                        </div>
+                    </div>
+                    <% if (locals.user && (story.user_id === user.id || user.role === 'admin')) { %>
+                        <a href="/stories/delete/<%= story.id %>" class="btn btn-delete btn-sm" onclick="return confirm('Apakah kamu yakin ingin menghapus cerita ini?')">
+                            &#128465; Hapus Cerita
+                        </a>
+                    <% } %>
+                </div>
+
+                <div class="story-content-body">
+                    <%= story.content %>
+                </div>
+
+                <!-- Tombol Like -->
+                <div class="like-bar">
+                    <form action="/stories/<%= story.id %>/like" method="POST" class="inline-form">
+                        <button type="submit" class="like-btn <%= liked ? 'liked' : '' %>" title="<%= liked ? 'Batal Suka' : 'Sukai Cerita' %>">
+                            <span><%= liked ? '❤️' : '🤍' %></span>
+                            <span><%= likeCount %> Suka</span>
+                        </button>
+                    </form>
+                    <span class="admin-hint">&#128172; <%= comments.length %> Komentar</span>
+                </div>
+            </article>
+
+            <!-- Komentar Section -->
+            <div class="comments-section page-anim">
+                <h2 style="font-size:1.3rem;margin-bottom:1.25rem;color:var(--dark);display:flex;align-items:center;gap:0.5rem;">
+                    &#128172; Komentar (<%= comments.length %>)
+                </h2>
+
+                <% if (locals.user) { %>
+                    <form action="/stories/<%= story.id %>/comment" method="POST" style="margin-bottom:2rem;">
+                        <div class="form-group">
+                            <label for="content">Tulis tanggapan atau komentar:</label>
+                            <textarea id="content" name="content" rows="3" required placeholder="Tulis komentar atau apresiasi kamu di sini..." style="resize:vertical;"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm">&#10148; Kirim Komentar</button>
+                    </form>
+                <% } else { %>
+                    <div class="empty-state" style="padding:1.5rem;margin-bottom:1.5rem;">
+                        <p>Ingin berpartisipasi dalam diskusi? <a href="/login?r=/stories/<%= story.id %>">Masuk untuk menulis komentar</a></p>
+                    </div>
+                <% } %>
+
+                <% if (comments.length === 0) { %>
+                    <div class="empty-state" style="padding:2rem;">
+                        <p class="admin-hint">Belum ada komentar untuk cerita ini. Jadilah yang pertama memberikan apresiasi!</p>
+                    </div>
+                <% } else { %>
+                    <div class="comments-list">
+                        <% comments.forEach(function (c) { %>
+                            <div class="comment-item">
+                                <span class="user-avatar <%= avatarClass(c.display_name) %>" style="width:38px;height:38px;font-size:0.85rem;flex-shrink:0;">
+                                    <%= initials(c.display_name) %>
+                                </span>
+                                <div class="comment-content-box">
+                                    <div class="comment-author-row">
+                                        <div>
+                                            <strong><%= c.display_name %></strong>
+                                            <% if (c.role === 'admin') { %>
+                                                <span class="role-badge role-admin" style="font-size:0.65rem;margin-left:0.3rem;">Admin</span>
+                                            <% } %>
+                                            <small class="admin-hint" style="margin-left:0.5rem;"><%= timeAgo(c.created_at) %></small>
+                                        </div>
+                                        <% if (locals.user && (c.user_id === user.id || user.role === 'admin')) { %>
+                                            <form action="/comments/delete/<%= c.id %>" method="POST" class="inline-form" onsubmit="return confirm('Hapus komentar ini?')">
+                                                <input type="hidden" name="return_url" value="/stories/<%= story.id %>">
+                                                <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger);padding:0.2rem 0.5rem;font-size:0.75rem;">
+                                                    &#10005; Hapus
+                                                </button>
+                                            </form>
+                                        <% } %>
+                                    </div>
+                                    <div class="comment-text"><%= c.content %></div>
+                                </div>
+                            </div>
+                        <% }) %>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; <%= new Date().getFullYear() %> VinStudio App. Hak cipta dilindungi.</p>
+        </div>
+    </footer>
+
+    <script src="/js/main.js"></script>
+</body>
+</html>

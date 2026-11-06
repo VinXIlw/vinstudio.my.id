@@ -3,15 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Profil Kelas - TKJ Connect</title>
+    <title>Profil &amp; Anggota - VinStudio</title>
     <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .members-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1.25rem;
+            margin-top: 1.25rem;
+        }
+        .member-card {
+            background: var(--lighter);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.25rem 1rem;
+            text-align: center;
+            transition: all var(--t) var(--ease);
+        }
+        .member-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-sm);
+            border-color: var(--primary-light);
+            background: #fff;
+        }
+    </style>
 </head>
 <body>
     <header>
         <div class="container">
             <div class="logo">
-                <span class="logo-icon">💻</span>
-                <span class="logo-text">TKJ Connect</span>
+                <span class="logo-icon">&#128187;</span>
+                <span class="logo-text">VinStudio</span>
             </div>
             <%- include('partials/nav', { currentPage: 'profile', user: locals.user }) %>
             <button class="mobile-menu-btn"><span></span><span></span><span></span></button>
@@ -19,37 +41,69 @@
     </header>
 
     <main>
-        <section class="profile-detail">
-            <div class="container">
+        <section class="profile-detail page-anim">
+            <div class="container" style="padding:0;">
                 <% if (profile) { %>
                 <div class="profile-header">
-                    <h1>Profil Kelas: <%= profile.class_name %></h1>
+                    <h1><%= profile.class_name %></h1>
                     <% if (profile.photo && profile.photo !== 'no-image.png' && profile.photo !== 'tkj-logo.png') { %>
-                        <img src="/uploads/<%= profile.photo %>" class="profile-photo" alt="Foto kelas" onerror="this.onerror=null;this.src='/img/placeholder.svg';">
+                        <img src="/uploads/<%= profile.photo %>" class="profile-photo" alt="Foto Profil" onerror="this.onerror=null;this.src='/img/placeholder.svg';">
                     <% } else { %>
                         <div class="profile-avatar">
-                            <span class="avatar-icon">💻</span>
+                            <span class="avatar-icon">&#128187;</span>
                         </div>
                     <% } %>
                     <div class="profile-meta">
-                        <span><strong>Wali:</strong> <%= profile.teacher_name %></span>
-                        <span><strong>Tahun:</strong> <%= profile.school_year %></span>
+                        <span><strong>Pembina / Wali:</strong> <%= profile.teacher_name %></span>
+                        <span><strong>Tahun Ajaran:</strong> <%= profile.school_year %></span>
                     </div>
                 </div>
 
                 <div class="profile-content">
                     <div class="profile-section">
-                        <h2>Deskripsi</h2>
-                        <p><%= profile.description %></p>
+                        <h2>&#128221; Tentang &amp; Deskripsi</h2>
+                        <p style="font-size:1.05rem;line-height:1.7;"><%= profile.description %></p>
                     </div>
-                    <div class="profile-section">
-                        <h2>Visi</h2>
-                        <p class="vision-text"><%= profile.vision %></p>
+
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:1.5rem;margin-bottom:2rem;">
+                        <div class="profile-section" style="margin-bottom:0;">
+                            <h2>&#127919; Visi</h2>
+                            <p class="vision-text"><%= profile.vision %></p>
+                        </div>
+                        <div class="profile-section" style="margin-bottom:0;">
+                            <h2>&#128640; Misi</h2>
+                            <p class="mission-text"><%= profile.mission %></p>
+                        </div>
                     </div>
-                    <div class="profile-section">
-                        <h2>Misi</h2>
-                        <p class="mission-text"><%= profile.mission %></p>
+
+                    <!-- Daftar Anggota -->
+                    <% if (typeof members !== 'undefined' && members && members.length > 0) { %>
+                    <div class="profile-section" style="border-top:1px solid var(--border);padding-top:2rem;">
+                        <h2>&#128101; Anggota Komunitas (<%= members.length %>)</h2>
+                        <div class="members-grid">
+                            <% members.forEach(function (m) { %>
+                                <div class="member-card">
+                                    <div class="user-avatar <%= avatarClass(m.display_name) %>" style="margin:0 auto 0.75rem;width:52px;height:52px;font-size:1.15rem;">
+                                        <%= initials(m.display_name) %>
+                                    </div>
+                                    <strong style="font-size:0.95rem;color:var(--dark);display:block;"><%= m.display_name %></strong>
+                                    <span class="role-badge <%= m.role === 'admin' ? 'role-admin' : 'role-user' %>" style="font-size:0.68rem;margin-top:0.4rem;">
+                                        <%= m.role === 'admin' ? 'Administrator' : 'Anggota' %>
+                                    </span>
+                                    <div class="admin-hint" style="margin-top:0.5rem;">
+                                        <%= m.album_count || 0 %> album &middot; <%= m.story_count || 0 %> cerita
+                                    </div>
+                                </div>
+                            <% }) %>
+                        </div>
                     </div>
+                    <% } %>
+
+                    <% if (locals.user && locals.user.role === 'admin') { %>
+                        <div style="text-align:right;margin-top:2rem;">
+                            <a href="/admin?tab=profil" class="btn btn-outline btn-sm">&#9881; Edit Profil di Panel Admin</a>
+                        </div>
+                    <% } %>
                 </div>
                 <% } else { %>
                 <div class="empty-state">
@@ -62,7 +116,7 @@
 
     <footer>
         <div class="container">
-            <p>&copy; <%= new Date().getFullYear() %> TKJ Profile Web App</p>
+            <p>&copy; <%= new Date().getFullYear() %> VinStudio App. Hak cipta dilindungi.</p>
         </div>
     </footer>
 
