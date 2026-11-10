@@ -232,7 +232,7 @@ function requireLogin() {
 function requireAdmin($pdo) {
     if (!isset($_SESSION['user_id'])) {
         $uri = $_SERVER['REQUEST_URI'] ?? '/';
-        header("Location: admin-login.php?msg=" . urlencode("Silakan masuk sebagai admin.") . "&r=" . urlencode($uri));
+        header("Location: login.php?msg=" . urlencode("Silakan masuk terlebih dahulu.") . "&r=" . urlencode($uri));
         exit;
     }
 
