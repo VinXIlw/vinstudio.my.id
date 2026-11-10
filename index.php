@@ -51,8 +51,25 @@ include __DIR__ . '/includes/header.php';
 ?>
 
 <style>
+    /* Kanvas Latar Belakang Interaktif Antigravity (Khusus Beranda) */
+    #antigravityBgCanvas {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        pointer-events: none;
+        z-index: 0;
+    }
+    main.home-main-content,
+    .site-footer {
+        position: relative;
+        z-index: 2;
+    }
+
     .hero-banner {
-        background: linear-gradient(135deg, #090d16 0%, #1e1b4b 52%, #312e81 100%);
+        background: linear-gradient(135deg, rgba(9, 13, 22, 0.82) 0%, rgba(30, 27, 75, 0.80) 52%, rgba(49, 46, 129, 0.78) 100%);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
         border-radius: var(--radius-xl);
         padding: 3.75rem 3rem;
         color: #fff;
@@ -60,14 +77,14 @@ include __DIR__ . '/includes/header.php';
         overflow: hidden;
         box-shadow: var(--shadow-lg);
         margin-bottom: 2.25rem;
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.14);
     }
     .hero-banner::before {
         content: '';
         position: absolute;
         width: 540px;
         height: 540px;
-        background: radial-gradient(circle, rgba(99, 102, 241, 0.38) 0%, transparent 70%);
+        background: radial-gradient(circle, rgba(99, 102, 241, 0.36) 0%, transparent 70%);
         top: -180px;
         right: -120px;
         border-radius: 50%;
@@ -78,7 +95,7 @@ include __DIR__ . '/includes/header.php';
         position: absolute;
         width: 440px;
         height: 440px;
-        background: radial-gradient(circle, rgba(14, 165, 233, 0.28) 0%, transparent 70%);
+        background: radial-gradient(circle, rgba(14, 165, 233, 0.26) 0%, transparent 70%);
         bottom: -140px;
         left: -60px;
         border-radius: 50%;
@@ -175,7 +192,19 @@ include __DIR__ . '/includes/header.php';
         display: flex;
         flex-direction: column;
         justify-content: space-between;
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
         transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease, border-color 0.35s ease;
+    }
+    html[data-theme="dark"] .bento-card,
+    html[data-theme="dark"] .album-card,
+    html[data-theme="dark"] .story-card {
+        background: rgba(17, 24, 39, 0.82);
+    }
+    html:not([data-theme="dark"]) .bento-card,
+    html:not([data-theme="dark"]) .album-card,
+    html:not([data-theme="dark"]) .story-card {
+        background: rgba(255, 255, 255, 0.86);
     }
     .bento-card:hover {
         transform: translateY(-5px);
@@ -239,7 +268,10 @@ include __DIR__ . '/includes/header.php';
     }
 </style>
 
-<main>
+<!-- Kanvas Efek Partikel & Halo Kursor bergaya Google Antigravity (Khusus Beranda) -->
+<canvas id="antigravityBgCanvas" aria-hidden="true"></canvas>
+
+<main class="home-main-content">
     <!-- Hero Banner -->
     <section class="hero-banner page-anim">
         <div class="hero-content">
@@ -481,6 +513,222 @@ include __DIR__ . '/includes/header.php';
 </main>
 
 <script>
+/* ==========================================================================
+   1. EFEK LATAR BELAKANG INTERAKTIF ANTIGRAVITY (KHUSUS BERANDA)
+   Partikel kapsul melayang & membentuk cincin magnetik (halo) mengikuti kursor
+   ========================================================================== */
+(function() {
+    const canvas = document.getElementById('antigravityBgCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    let dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    // Palet warna ikonik Google Antigravity
+    const palette = [
+        '#4285F4', // Google Blue
+        '#6366F1', // Indigo
+        '#38BDF8', // Sky Cyan
+        '#A855F7', // Purple
+        '#EC4899', // Coral Pink
+        '#10B981', // Emerald
+        '#F59E0B'  // Amber
+    ];
+
+    const pointer = {
+        x: width * 0.5,
+        y: height * 0.38,
+        targetX: width * 0.5,
+        targetY: height * 0.38,
+        active: false,
+        pulse: 0
+    };
+
+    let particles = [];
+
+    function initCanvas() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        // Buat sebaran partikel kapsul di seluruh layar
+        const spacing = width < 768 ? 54 : 44;
+        const cols = Math.ceil(width / spacing) + 1;
+        const rows = Math.ceil(height / spacing) + 1;
+        particles = [];
+
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const jitterX = (Math.random() - 0.5) * spacing * 0.65;
+                const jitterY = (Math.random() - 0.5) * spacing * 0.65;
+                const hx = c * spacing + jitterX;
+                const hy = r * spacing + jitterY;
+                particles.push({
+                    x: hx,
+                    y: hy,
+                    homeX: hx,
+                    homeY: hy,
+                    vx: 0,
+                    vy: 0,
+                    angle: Math.random() * Math.PI * 2,
+                    color: palette[(r * cols + c) % palette.length],
+                    phase: Math.random() * Math.PI * 2,
+                    speed: 0.6 + Math.random() * 0.8,
+                    baseLen: 4.5 + Math.random() * 4.5,
+                    thickness: 2.1 + Math.random() * 1.1
+                });
+            }
+        }
+    }
+
+    window.addEventListener('resize', initCanvas);
+
+    window.addEventListener('mousemove', function(e) {
+        pointer.targetX = e.clientX;
+        pointer.targetY = e.clientY;
+        pointer.active = true;
+    }, { passive: true });
+
+    window.addEventListener('touchmove', function(e) {
+        if (e.touches && e.touches[0]) {
+            pointer.targetX = e.touches[0].clientX;
+            pointer.targetY = e.touches[0].clientY;
+            pointer.active = true;
+        }
+    }, { passive: true });
+
+    window.addEventListener('mousedown', function() {
+        pointer.pulse = 1.0;
+    });
+
+    initCanvas();
+
+    let startTime = performance.now();
+
+    function animate(now) {
+        const t = (now - startTime) * 0.001;
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+        ctx.clearRect(0, 0, width, height);
+
+        // Jika kursor belum digerakkan, gerakkan titik fokus secara lembut membentuk angka 8
+        if (!pointer.active) {
+            pointer.targetX = width * 0.5 + Math.cos(t * 0.55) * (width * 0.22);
+            pointer.targetY = height * 0.36 + Math.sin(t * 0.9) * (height * 0.14);
+        }
+
+        // Interpolasi halus posisi kursor (trailing spring)
+        pointer.x += (pointer.targetX - pointer.x) * 0.12;
+        pointer.y += (pointer.targetY - pointer.y) * 0.12;
+
+        if (pointer.pulse > 0.01) {
+            pointer.pulse *= 0.91;
+        } else {
+            pointer.pulse = 0;
+        }
+
+        // 1. Gambar Ambient Spotlight Glow yang mengikuti kursor
+        const glowRadius = width < 768 ? 240 : 380;
+        const grad = ctx.createRadialGradient(pointer.x, pointer.y, 10, pointer.x, pointer.y, glowRadius);
+        if (isDark) {
+            grad.addColorStop(0, 'rgba(99, 102, 241, 0.18)');
+            grad.addColorStop(0.45, 'rgba(14, 165, 233, 0.08)');
+            grad.addColorStop(1, 'rgba(9, 13, 22, 0)');
+        } else {
+            grad.addColorStop(0, 'rgba(79, 70, 229, 0.12)');
+            grad.addColorStop(0.5, 'rgba(14, 165, 233, 0.05)');
+            grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        }
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, width, height);
+
+        // 2. Update & gambar setiap partikel kapsul Antigravity
+        const maxInfluence = width < 768 ? 210 : 310;
+        const baseRingRadius = (width < 768 ? 95 : 145) + pointer.pulse * 75;
+
+        ctx.lineCap = 'round';
+
+        for (let i = 0; i < particles.length; i++) {
+            const p = particles[i];
+
+            // Gerakan mengambang alami (anti-gravity drift)
+            const floatX = p.homeX + Math.cos(t * p.speed + p.phase) * 9;
+            const floatY = p.homeY + Math.sin(t * p.speed + p.phase) * 9;
+
+            const dx = p.x - pointer.x;
+            const dy = p.y - pointer.y;
+            const dist = Math.hypot(dx, dy) || 0.001;
+            const angleToCursor = Math.atan2(dy, dx);
+
+            let targetX = floatX;
+            let targetY = floatY;
+            let targetAngle = p.phase + t * 0.4;
+            let energy = 0;
+
+            if (dist < maxInfluence) {
+                energy = Math.pow(1 - dist / maxInfluence, 1.35);
+
+                // Bentuk cincin bergelombang organik (medusa/halo) di sekeliling kursor
+                const waveOffset = Math.sin(angleToCursor * 4 + t * 2.6) * 18
+                                 + Math.cos(angleToCursor * 3 - t * 1.9) * 12;
+                const ringR = baseRingRadius + waveOffset;
+
+                // Tarik partikel menuju keliling cincin halo + sedikit efek pusaran (swirl)
+                const swirlAngle = angleToCursor + 0.18 * energy;
+                const ringX = pointer.x + Math.cos(swirlAngle) * ringR;
+                const ringY = pointer.y + Math.sin(swirlAngle) * ringR;
+
+                targetX = floatX * (1 - energy * 0.78) + ringX * (energy * 0.78);
+                targetY = floatY * (1 - energy * 0.78) + ringY * (energy * 0.78);
+
+                // Arahkan rotasi kapsul mengikuti garis medan magnet kursor
+                targetAngle = angleToCursor + Math.sin(t * 2 + p.phase) * 0.25;
+            }
+
+            // Fisika pegas halus (spring + damping)
+            p.vx = (p.vx + (targetX - p.x) * 0.085) * 0.80;
+            p.vy = (p.vy + (targetY - p.y) * 0.085) * 0.80;
+            p.x += p.vx;
+            p.y += p.vy;
+
+            // Interpolasi sudut rotasi kapsul
+            let diffAngle = targetAngle - p.angle;
+            while (diffAngle > Math.PI) diffAngle -= Math.PI * 2;
+            while (diffAngle < -Math.PI) diffAngle += Math.PI * 2;
+            p.angle += diffAngle * 0.14;
+
+            // Panjang kapsul memanjang saat terpengaruh medan kursor
+            const halfLen = (p.baseLen + energy * 8.5) * 0.5;
+            const cosA = Math.cos(p.angle) * halfLen;
+            const sinA = Math.sin(p.angle) * halfLen;
+
+            const baseAlpha = isDark ? 0.26 : 0.24;
+            const activeAlpha = isDark ? 0.88 : 0.78;
+            ctx.globalAlpha = baseAlpha + energy * (activeAlpha - baseAlpha);
+            ctx.strokeStyle = p.color;
+            ctx.lineWidth = p.thickness + energy * 1.1;
+
+            ctx.beginPath();
+            ctx.moveTo(p.x - cosA, p.y - sinA);
+            ctx.lineTo(p.x + cosA, p.y + sinA);
+            ctx.stroke();
+        }
+
+        ctx.globalAlpha = 1;
+        requestAnimationFrame(animate);
+    }
+
+    requestAnimationFrame(animate);
+})();
+
+/* ==========================================================================
+   2. SINKRONISASI REAL-TIME GLOBAL LIVE CHAT DI BERANDA
+   ========================================================================== */
 (function() {
     const previewList = document.getElementById('homeChatPreviewList');
     const statCount = document.getElementById('homeChatStatCount');
