@@ -92,9 +92,9 @@ include __DIR__ . '/includes/header.php';
                     <span class="search-icon">🔍</span>
                     <input type="search" id="albumSearch" placeholder="Cari judul karya atau nama pengunggah..." aria-label="Cari album">
                 </div>
-                <div style="display:flex;gap:0.4rem;">
-                    <a href="albums.php?sort=latest" class="btn btn-sm <?= $sort !== 'popular' ? 'btn-primary' : 'btn-outline' ?>">Terbaru</a>
-                    <a href="albums.php?sort=popular" class="btn btn-sm <?= $sort === 'popular' ? 'btn-primary' : 'btn-outline' ?>">Terpopuler</a>
+                <div class="sort-pill-group" data-sort-pills data-target-grid="#albumsContainer">
+                    <a href="albums.php?sort=latest" data-sort="latest" class="sort-pill-btn <?= $sort !== 'popular' ? 'active' : '' ?>">Terbaru</a>
+                    <a href="albums.php?sort=popular" data-sort="popular" class="sort-pill-btn <?= $sort === 'popular' ? 'active' : '' ?>">Terpopuler</a>
                 </div>
                 <span class="admin-hint" id="albumCountDisplay"><?= count($albums) ?> album tersedia</span>
             </div>
@@ -102,7 +102,7 @@ include __DIR__ . '/includes/header.php';
             <?php if (!empty($albums)): ?>
             <div class="album-grid page-anim" id="albumsContainer">
                 <?php foreach ($albums as $album): ?>
-                <article class="album-card" data-title="<?= strtolower(htmlspecialchars($album['title'] . ' ' . $album['username'])) ?>">
+                <article class="album-card" data-title="<?= strtolower(htmlspecialchars($album['title'] . ' ' . $album['username'])) ?>" data-likes="<?= (int)$album['like_count'] ?>" data-time="<?= strtotime($album['created_at'] ?? '') ?: 0 ?>">
                     <a href="album-detail.php?id=<?= $album['id'] ?>" class="album-link">
                         <div class="album-img-wrap">
                             <img src="<?= (!empty($album['photo']) && $album['photo'] !== 'no-image.png') ? 'uploads/' . htmlspecialchars($album['photo']) : 'img/placeholder.svg' ?>"
@@ -150,6 +150,7 @@ include __DIR__ . '/includes/header.php';
 </main>
 
 <script>
+(function() {
     const searchInput = document.getElementById('albumSearch');
     const container = document.getElementById('albumsContainer');
     const countDisplay = document.getElementById('albumCountDisplay');
@@ -169,6 +170,7 @@ include __DIR__ . '/includes/header.php';
             if (noResults) noResults.style.display = visible === 0 ? '' : 'none';
         });
     }
+})();
 </script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>

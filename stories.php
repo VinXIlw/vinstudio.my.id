@@ -84,9 +84,9 @@ include __DIR__ . '/includes/header.php';
                     <span class="search-icon">🔍</span>
                     <input type="search" id="storySearch" placeholder="Cari judul, topik, atau nama penulis..." aria-label="Cari cerita">
                 </div>
-                <div style="display:flex;gap:0.4rem;">
-                    <a href="stories.php?sort=latest" class="btn btn-sm <?= $sort !== 'popular' ? 'btn-primary' : 'btn-outline' ?>">Terbaru</a>
-                    <a href="stories.php?sort=popular" class="btn btn-sm <?= $sort === 'popular' ? 'btn-primary' : 'btn-outline' ?>">Terpopuler</a>
+                <div class="sort-pill-group" data-sort-pills data-target-grid="#storiesContainer">
+                    <a href="stories.php?sort=latest" data-sort="latest" class="sort-pill-btn <?= $sort !== 'popular' ? 'active' : '' ?>">Terbaru</a>
+                    <a href="stories.php?sort=popular" data-sort="popular" class="sort-pill-btn <?= $sort === 'popular' ? 'active' : '' ?>">Terpopuler</a>
                 </div>
                 <span class="admin-hint" id="storyCountDisplay"><?= count($stories) ?> artikel diterbitkan</span>
             </div>
@@ -94,7 +94,7 @@ include __DIR__ . '/includes/header.php';
             <?php if (!empty($stories)): ?>
             <div class="story-grid page-anim" id="storiesContainer">
                 <?php foreach ($stories as $story): ?>
-                <article class="story-card" data-search="<?= strtolower(htmlspecialchars($story['title'] . ' ' . $story['username'] . ' ' . $story['content'])) ?>">
+                <article class="story-card" data-search="<?= strtolower(htmlspecialchars($story['title'] . ' ' . $story['username'] . ' ' . $story['content'])) ?>" data-likes="<?= (int)$story['like_count'] ?>" data-time="<?= strtotime($story['created_at'] ?? '') ?: 0 ?>">
                     <a href="story-detail.php?id=<?= $story['id'] ?>" class="story-link">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.55rem;">
                             <div style="display:flex;align-items:center;gap:0.45rem;">
@@ -141,6 +141,7 @@ include __DIR__ . '/includes/header.php';
 </main>
 
 <script>
+(function() {
     const searchInput = document.getElementById('storySearch');
     const container = document.getElementById('storiesContainer');
     const countDisplay = document.getElementById('storyCountDisplay');
@@ -160,6 +161,7 @@ include __DIR__ . '/includes/header.php';
             if (noResults) noResults.style.display = visible === 0 ? '' : 'none';
         });
     }
+})();
 </script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>

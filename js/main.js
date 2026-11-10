@@ -1,8 +1,9 @@
 /*
-  XI TKJ 1 Digital Hub — Main Interactive JavaScript
+  XI TKJ 1 Digital Hub — Main Interactive JavaScript (v5.0 Instant PJAX & Smooth Glider)
   Fitur:
-    - Sliding Button Glider (efek tombol langsung geser ke sebelah pada Navbar & Tab)
-    - Smooth Directional Page Transition (transisi geser halaman mulus)
+    - Continuous Sliding Button Glider (Navbar, Sort Pills Terbaru/Terpopuler, & Tab)
+    - Instant PJAX / Turbo Navigation + Hover & Warm Prefetch (pindah halaman instan 0ms delay)
+    - Directional Slide Page Transition (geser kanan/kiri sesuai urutan tombol)
     - Dark / Light Mode Toggle dengan persistensi localStorage
     - Floating Mini Global Live Chat Drawer (dengan fitur Hapus & Live Sync)
     - Lightbox Zoom Gambar Resolusi Tinggi
@@ -14,35 +15,43 @@
     const $  = (sel, ctx) => (ctx || document).querySelector(sel);
     const $$ = (sel, ctx) => Array.from((ctx || document).querySelectorAll(sel));
 
-    // Terapkan arah animasi masuk halaman dari navigasi sebelumnya
-    try {
-        const savedDir = sessionStorage.getItem('xitkj1_nav_dir');
-        if (savedDir === 'next' || savedDir === 'prev') {
-            document.documentElement.setAttribute('data-nav-dir', savedDir);
-            sessionStorage.removeItem('xitkj1_nav_dir');
-        }
-    } catch (e) {}
+    window.__pjaxCleanupFns = window.__pjaxCleanupFns || [];
+
+    let syncNavToUrl = null;
+    const pjaxCache = new Map();
+    const PJAX_TTL = 25000; // 25 detik cache prefetch
+
+    window.clearPjaxCache = function () {
+        pjaxCache.clear();
+    };
 
     document.addEventListener('DOMContentLoaded', function () {
+        // Inisialisasi global sekali jalan (Header, Footer, Router, Delegasi Event)
         initThemeToggle();
         initProgressBar();
         initMobileMenu();
-        initActiveNav();
         initNavGlider();
-        initPageTransition();
-        initReveal();
-        initTabs();
+        initPjaxRouter();
         initModals();
         initRipple();
-        initFormUX();
-        initTableTools();
-        initToasts();
-        initCounterAnimation();
-        initSmoothScroll();
         initLightbox();
         initShareButtons();
         initFloatingChat();
+
+        // Inisialisasi elemen konten di dalam halaman aktif (#pjaxStage)
+        initPageContent(document);
     });
+
+    function initPageContent(ctx) {
+        initReveal(ctx);
+        initTabs(ctx);
+        initSortGlider(ctx);
+        initFormUX(ctx);
+        initTableTools(ctx);
+        initToasts(ctx);
+        initCounterAnimation(ctx);
+        initSmoothScroll(ctx);
+    }
 
     /* ---------------------------------------------------------
        Dark / Light Mode Toggle
@@ -66,14 +75,26 @@
        Progress bar navigasi
     --------------------------------------------------------- */
     function initProgressBar() {
+        if ($('.page-progress')) return;
         const bar = document.createElement('div');
         bar.className = 'page-progress';
         document.body.appendChild(bar);
+    }
 
-        window.addEventListener('beforeunload', function () {
-            bar.classList.add('active');
-            bar.classList.add('done');
-        });
+    function startProgress() {
+        const bar = $('.page-progress');
+        if (!bar) return;
+        bar.classList.remove('done');
+        bar.classList.add('active');
+    }
+
+    function finishProgress() {
+        const bar = $('.page-progress');
+        if (!bar) return;
+        bar.classList.add('active', 'done');
+        setTimeout(function () {
+            bar.classList.remove('active', 'done');
+        }, 280);
     }
 
     /* ---------------------------------------------------------
@@ -99,22 +120,9 @@
     }
 
     /* ---------------------------------------------------------
-       Tandai nav aktif
+       Continuous Sliding Button Glider di Navbar
+       (Tidak pernah hilang/reset, langsung geser mulus ke sebelah)
     --------------------------------------------------------- */
-    function initActiveNav() {
-        const path = window.location.pathname;
-        $$('.main-nav a').forEach(function (link) {
-            const href = link.getAttribute('href');
-            if (href && (path.endsWith('/' + href) || path === href)) {
-                link.classList.add('active');
-            }
-        });
-    }
-
-    /* ---------------------------------------------------------
-       Sliding Button Glider di Navbar (Geser ke Sebelah)
-    --------------------------------------------------------- */
-    let moveNavbarGliderTo = null;
     function initNavGlider() {
         const navUl = $('.main-nav ul');
         if (!navUl) return;
@@ -122,93 +130,318 @@
         const links = $$('li > a:not(.btn-logout)', navUl);
         if (!links.length) return;
 
+        // Buat Hover Glider (bayangan kapsul halus saat kursor melintas)
+        const hoverGlider = document.createElement('span');
+        hoverGlider.className = 'nav-hover-glider';
+        navUl.appendChild(hoverGlider);
+
+        // Buat Active Glider (kapsul gradien utama yang bergeser antar tombol)
         const glider = document.createElement('span');
         glider.className = 'nav-glider';
         navUl.appendChild(glider);
-        navUl.classList.add('has-glider');
+
+        let movingTimer = null;
 
         function getMetrics(el) {
-            const ulRect = navUl.getBoundingClientRect();
-            const elRect = el.getBoundingClientRect();
             return {
-                x: elRect.left - ulRect.left,
-                y: elRect.top - ulRect.top,
-                w: elRect.width,
-                h: elRect.height
+                x: el.offsetLeft,
+                y: el.offsetTop,
+                w: el.offsetWidth,
+                h: el.offsetHeight
             };
         }
 
-        function applyGlider(m, animate) {
+        function applyGlider(el, animate) {
+            if (!el || window.innerWidth <= 768) {
+                glider.style.opacity = '0';
+                return;
+            }
+            const m = getMetrics(el);
+            if (m.w === 0) return;
+
             if (!animate) {
                 glider.style.transition = 'none';
             } else {
                 glider.style.transition = '';
+                glider.classList.add('is-moving');
+                if (movingTimer) clearTimeout(movingTimer);
+                movingTimer = setTimeout(function () {
+                    glider.classList.remove('is-moving');
+                }, 440);
             }
+
+            glider.classList.toggle('is-chat', el.classList.contains('nav-chat-link'));
             glider.style.width = m.w + 'px';
             glider.style.height = m.h + 'px';
             glider.style.transform = `translate3d(${m.x}px, ${m.y}px, 0)`;
             glider.style.opacity = '1';
+
             if (!animate) {
-                // Paksa reflow agar transisi berikutnya berjalan mulus
                 void glider.offsetWidth;
                 glider.style.transition = '';
             }
         }
 
-        const activeLink = links.find(l => l.classList.contains('active'));
-        if (activeLink && window.innerWidth > 768) {
-            const targetMetrics = getMetrics(activeLink);
-            let prevMetrics = null;
-            try {
-                const raw = sessionStorage.getItem('xitkj1_nav_rect');
-                if (raw) prevMetrics = JSON.parse(raw);
-            } catch (e) {}
+        // Hover glider saat mouse diarahkan ke tombol navbar
+        links.forEach(function (link) {
+            link.addEventListener('mouseenter', function () {
+                if (window.innerWidth <= 768) return;
+                const m = getMetrics(link);
+                hoverGlider.style.width = m.w + 'px';
+                hoverGlider.style.height = m.h + 'px';
+                hoverGlider.style.transform = `translate3d(${m.x}px, ${m.y}px, 0)`;
+                hoverGlider.style.opacity = '1';
+            });
+        });
+        navUl.addEventListener('mouseleave', function () {
+            hoverGlider.style.opacity = '0';
+        });
 
-            if (prevMetrics && typeof prevMetrics.x === 'number') {
-                // Mulai dari posisi tombol sebelumnya lalu langsung geser ke tombol aktif!
-                applyGlider(prevMetrics, false);
-                requestAnimationFrame(function () {
-                    requestAnimationFrame(function () {
-                        applyGlider(targetMetrics, true);
-                    });
-                });
-            } else {
-                applyGlider(targetMetrics, false);
+        // Posisikan glider di tombol aktif saat pertama kali buka, baru aktifkan .has-glider
+        let activeLink = links.find(l => l.classList.contains('active'));
+        if (!activeLink) {
+            activeLink = findMatchingNavLink(window.location.href, links);
+            if (activeLink) activeLink.classList.add('active');
+        }
+        if (activeLink) {
+            applyGlider(activeLink, false);
+        }
+        navUl.classList.add('has-glider');
+
+        function findMatchingNavLink(urlStr, linkList) {
+            try {
+                const u = new URL(urlStr, window.location.origin);
+                let file = u.pathname.split('/').pop() || 'index.php';
+                if (file === '' || file === '/') file = 'index.php';
+
+                // Pemetaan halaman detail/tambah ke menu induknya di navbar
+                if (file === 'album-detail.php' || file === 'album-add.php') file = 'albums.php';
+                if (file === 'story-detail.php' || file === 'story-add.php') file = 'stories.php';
+
+                return linkList.find(function (a) {
+                    const href = (a.getAttribute('href') || '').split('?')[0];
+                    return href === file;
+                }) || null;
+            } catch (e) {
+                return null;
             }
-
-            try {
-                sessionStorage.setItem('xitkj1_nav_rect', JSON.stringify(targetMetrics));
-            } catch (e) {}
         }
 
-        moveNavbarGliderTo = function (targetLink) {
-            if (!targetLink || window.innerWidth <= 768) return;
-            const currentActive = links.find(l => l.classList.contains('active'));
-            if (currentActive) {
-                try {
-                    sessionStorage.setItem('xitkj1_nav_rect', JSON.stringify(getMetrics(currentActive)));
-                } catch (e) {}
+        syncNavToUrl = function (urlStr, animate) {
+            const prevActive = links.find(l => l.classList.contains('active'));
+            const nextActive = findMatchingNavLink(urlStr, links);
+            const prevIdx = prevActive ? links.indexOf(prevActive) : -1;
+            const nextIdx = nextActive ? links.indexOf(nextActive) : -1;
+
+            let dir = 'fade';
+            if (prevIdx !== -1 && nextIdx !== -1 && prevIdx !== nextIdx) {
+                dir = nextIdx > prevIdx ? 'next' : 'prev';
             }
-            links.forEach(l => l.classList.toggle('active', l === targetLink));
-            applyGlider(getMetrics(targetLink), true);
+
+            if (nextActive) {
+                links.forEach(l => l.classList.toggle('active', l === nextActive));
+                applyGlider(nextActive, animate !== false);
+            }
+
+            // Tutup menu mobile jika sedang terbuka
+            const menuBtn = $('.mobile-menu-btn');
+            if (navUl.classList.contains('active')) {
+                navUl.classList.remove('active');
+                if (menuBtn) menuBtn.classList.remove('active');
+            }
+
+            return { prevIdx, nextIdx, dir };
         };
 
         window.addEventListener('resize', function () {
             const cur = links.find(l => l.classList.contains('active'));
-            if (cur && window.innerWidth > 768) {
-                applyGlider(getMetrics(cur), false);
-            } else {
-                glider.style.opacity = '0';
-            }
+            if (cur) applyGlider(cur, false);
         });
     }
 
     /* ---------------------------------------------------------
-       Transisi perpindahan halaman (Smooth & Directional Slide)
+       Sliding Glider untuk Sort Filter (Terbaru / Terpopuler)
+       di halaman Album & Cerita — Instan 0ms tanpa reload!
     --------------------------------------------------------- */
-    function initPageTransition() {
-        const navLinks = $$('.main-nav ul li > a');
+    function initSortGlider(ctx) {
+        const groups = $$('[data-sort-pills]', ctx);
+        groups.forEach(function (group) {
+            if (group.dataset.gliderReady === '1') return;
+            group.dataset.gliderReady = '1';
 
+            const btns = $$('.sort-pill-btn', group);
+            if (!btns.length) return;
+
+            const glider = document.createElement('span');
+            glider.className = 'sort-glider';
+            group.appendChild(glider);
+
+            function moveSortGlider(btn, animate) {
+                if (!btn) return;
+                if (!animate) glider.style.transition = 'none';
+                else glider.style.transition = '';
+
+                glider.style.width = btn.offsetWidth + 'px';
+                glider.style.height = btn.offsetHeight + 'px';
+                glider.style.transform = `translate3d(${btn.offsetLeft}px, ${btn.offsetTop}px, 0)`;
+                glider.style.opacity = '1';
+
+                if (!animate) {
+                    void glider.offsetWidth;
+                    glider.style.transition = '';
+                }
+            }
+
+            const initialActive = btns.find(b => b.classList.contains('active')) || btns[0];
+            if (initialActive) {
+                moveSortGlider(initialActive, false);
+            }
+            group.classList.add('has-glider');
+
+            btns.forEach(function (btn) {
+                btn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    const sortMode = btn.dataset.sort || 'latest';
+                    btns.forEach(b => b.classList.toggle('active', b === btn));
+                    moveSortGlider(btn, true);
+
+                    // Urutkan kartu secara instan di sisi klien (0ms!)
+                    const gridSel = group.dataset.targetGrid;
+                    const grid = gridSel ? $(gridSel) : null;
+                    if (grid) {
+                        const cards = Array.from(grid.children);
+                        cards.sort(function (a, b) {
+                            const likesA = parseInt(a.dataset.likes || '0', 10);
+                            const likesB = parseInt(b.dataset.likes || '0', 10);
+                            const timeA = parseInt(a.dataset.time || '0', 10);
+                            const timeB = parseInt(b.dataset.time || '0', 10);
+                            if (sortMode === 'popular') {
+                                if (likesB !== likesA) return likesB - likesA;
+                            }
+                            return timeB - timeA;
+                        });
+                        cards.forEach(function (c, idx) {
+                            c.style.animation = 'none';
+                            void c.offsetWidth;
+                            c.style.animation = `cardEntrance 0.36s cubic-bezier(0.22, 1, 0.36, 1) ${idx * 0.035}s both`;
+                            grid.appendChild(c);
+                        });
+                    }
+
+                    // Perbarui URL tanpa reload
+                    if (window.history && window.history.replaceState) {
+                        const u = new URL(btn.href, window.location.origin);
+                        window.history.replaceState({ url: u.href }, '', u.href);
+                    }
+                });
+            });
+
+            window.addEventListener('resize', function () {
+                const cur = btns.find(b => b.classList.contains('active'));
+                if (cur) moveSortGlider(cur, false);
+            });
+        });
+    }
+
+    /* ---------------------------------------------------------
+       Instant PJAX / Turbo Router + Hover & Warm Prefetch
+       (Pindah halaman instan tanpa reload Header/Footer)
+    --------------------------------------------------------- */
+    function isPjaxEligibleUrl(urlObj) {
+        if (!urlObj || urlObj.origin !== window.location.origin) return false;
+        let file = urlObj.pathname.split('/').pop() || 'index.php';
+        if (file === '' || file === '/') file = 'index.php';
+
+        // Halaman autentikasi layar penuh atau aksi khusus menggunakan navigasi langsung
+        const bypassFiles = ['login.php', 'register.php', 'logout.php', 'chat-api.php', 'like.php', 'comment.php', 'album-delete.php', 'story-delete.php'];
+        if (bypassFiles.includes(file)) return false;
+        if (urlObj.searchParams.has('del')) return false;
+        return file.endsWith('.php') || file === 'index.php';
+    }
+
+    async function fetchPageHtml(urlStr, forceNetwork) {
+        const now = Date.now();
+        if (!forceNetwork && pjaxCache.has(urlStr)) {
+            const cached = pjaxCache.get(urlStr);
+            if (now - cached.time < PJAX_TTL) {
+                return cached.html;
+            }
+        }
+
+        const res = await fetch(urlStr, {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: { 'X-PJAX': 'true', 'Accept': 'text/html' }
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        // Jika diredirect ke login.php, batalkan PJAX dan arahkan penuh
+        if (res.redirected && res.url.includes('login.php')) {
+            window.location.href = res.url;
+            return null;
+        }
+        const html = await res.text();
+        pjaxCache.set(urlStr, { html: html, time: Date.now() });
+        return html;
+    }
+
+    function prefetchUrl(urlStr) {
+        try {
+            const u = new URL(urlStr, window.location.origin);
+            if (!isPjaxEligibleUrl(u)) return;
+            // Jangan cache chat.php terlalu lama, tapi boleh diprefetch saat hover
+            const now = Date.now();
+            if (pjaxCache.has(u.href) && (now - pjaxCache.get(u.href).time < PJAX_TTL)) {
+                return;
+            }
+            fetchPageHtml(u.href, false).catch(function () {});
+        } catch (e) {}
+    }
+
+    function runCleanupFns() {
+        if (Array.isArray(window.__pjaxCleanupFns)) {
+            while (window.__pjaxCleanupFns.length > 0) {
+                const fn = window.__pjaxCleanupFns.pop();
+                try {
+                    if (typeof fn === 'function') fn();
+                } catch (e) {}
+            }
+        }
+    }
+
+    function initPjaxRouter() {
+        const stage = $('#pjaxStage');
+        if (!stage) return;
+
+        let activeNavRequest = 0;
+
+        // 1. Warm Prefetch otomatis halaman utama di latar belakang agar klik pertama 0ms!
+        setTimeout(function () {
+            ['index.php', 'profile.php', 'albums.php', 'stories.php', 'chat.php'].forEach(function (page) {
+                const u = new URL(page, window.location.href);
+                if (u.href !== window.location.href) {
+                    prefetchUrl(u.href);
+                }
+            });
+        }, 300);
+
+        // 2. Prefetch instan saat kursor menyentuh (hover / touchstart) tautan apa pun
+        document.addEventListener('mouseover', function (e) {
+            const link = e.target.closest('a');
+            if (!link || !link.href) return;
+            if (link.hasAttribute('data-no-transition') || link.hasAttribute('data-sort')) return;
+            prefetchUrl(link.href);
+        }, { passive: true });
+
+        document.addEventListener('touchstart', function (e) {
+            const link = e.target.closest('a');
+            if (!link || !link.href) return;
+            if (link.hasAttribute('data-no-transition') || link.hasAttribute('data-sort')) return;
+            prefetchUrl(link.href);
+        }, { passive: true });
+
+        // 3. Tangani klik navigasi secara instan
         document.addEventListener('click', function (e) {
             const link = e.target.closest('a');
             if (!link) return;
@@ -217,56 +450,125 @@
             if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('javascript:')) return;
             if (link.target === '_blank' || link.hasAttribute('download')) return;
             if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-            if (link.hasAttribute('data-no-transition')) return;
+            if (link.hasAttribute('data-no-transition') || link.hasAttribute('data-sort')) return;
 
             const url = new URL(link.href, window.location.href);
-            if (url.origin !== window.location.origin) return;
-            if (url.href === window.location.href) return;
+            if (!isPjaxEligibleUrl(url)) return;
+
+            // Jika klik halaman yang persis sama, cukup geser glider & scroll ke atas
+            if (url.href === window.location.href) {
+                e.preventDefault();
+                if (syncNavToUrl) syncNavToUrl(url.href, true);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
 
             e.preventDefault();
-
-            // Deteksi apakah klik berasal dari tombol navbar untuk efek geser ke sebelah
-            const currentActiveNav = navLinks.find(l => l.classList.contains('active'));
-            const clickedNavIndex = navLinks.indexOf(link);
-            const currentNavIndex = currentActiveNav ? navLinks.indexOf(currentActiveNav) : -1;
-
-            if (clickedNavIndex !== -1) {
-                if (moveNavbarGliderTo) {
-                    moveNavbarGliderTo(link);
-                }
-                if (currentNavIndex !== -1 && clickedNavIndex !== currentNavIndex) {
-                    const dir = clickedNavIndex > currentNavIndex ? 'next' : 'prev';
-                    document.body.setAttribute('data-leave-dir', dir);
-                    try {
-                        sessionStorage.setItem('xitkj1_nav_dir', dir);
-                    } catch (err) {}
-                }
-            }
-
-            const bar = $('.page-progress');
-            if (bar) {
-                bar.classList.add('active');
-                setTimeout(function () { bar.classList.add('done'); }, 220);
-            }
-            document.body.classList.add('is-leaving');
-            setTimeout(function () { window.location.href = url.href; }, 210);
+            navigateTo(url.href, true);
         });
 
-        window.addEventListener('pageshow', function (e) {
-            if (e.persisted) {
-                document.body.classList.remove('is-leaving');
-                document.body.removeAttribute('data-leave-dir');
-                const bar = $('.page-progress');
-                if (bar) bar.classList.remove('active', 'done');
+        // 4. Tangani tombol Back / Forward browser
+        window.addEventListener('popstate', function () {
+            if (isPjaxEligibleUrl(new URL(window.location.href))) {
+                navigateTo(window.location.href, false);
             }
         });
+
+        async function navigateTo(targetUrl, pushState) {
+            const reqId = ++activeNavRequest;
+
+            // Langsung geser tombol navbar ke sebelah tanpa menunggu jaringan!
+            let slideDir = 'fade';
+            if (syncNavToUrl) {
+                const navInfo = syncNavToUrl(targetUrl, true);
+                if (navInfo && navInfo.dir) slideDir = navInfo.dir;
+            }
+
+            // Tutup panel mini chat jika sedang terbuka saat pindah ke chat.php
+            const floatingPanel = $('#floatingChatPanel');
+            if (floatingPanel && floatingPanel.classList.contains('open')) {
+                floatingPanel.classList.remove('open');
+                floatingPanel.setAttribute('aria-hidden', 'true');
+            }
+
+            const isCached = pjaxCache.has(targetUrl) && (Date.now() - pjaxCache.get(targetUrl).time < PJAX_TTL);
+            if (!isCached) {
+                startProgress();
+            }
+
+            try {
+                const isChatTarget = targetUrl.includes('chat.php');
+                const html = await fetchPageHtml(targetUrl, isChatTarget);
+                if (!html || reqId !== activeNavRequest) return;
+
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newStage = doc.getElementById('pjaxStage');
+
+                if (!newStage) {
+                    window.location.href = targetUrl;
+                    return;
+                }
+
+                // Bersihkan listener/interval dari halaman sebelumnya
+                runCleanupFns();
+
+                // Perbarui judul dokumen & URL
+                if (doc.title) document.title = doc.title;
+                if (pushState && window.history && window.history.pushState) {
+                    window.history.pushState({ url: targetUrl }, '', targetUrl);
+                }
+
+                // Ganti isi #pjaxStage dan jalankan animasi slide directional
+                const curStage = $('#pjaxStage');
+                curStage.removeAttribute('data-slide-dir');
+                const pageAttr = newStage.getAttribute('data-page') || '';
+                curStage.setAttribute('data-page', pageAttr);
+                curStage.innerHTML = newStage.innerHTML;
+
+                // Paksa reflow ringan agar animasi masuk selalu terpicu mulus
+                void curStage.offsetWidth;
+                curStage.setAttribute('data-slide-dir', slideDir);
+
+                // Tampilkan/sembunyikan tombol floating mini chat
+                const floatingRoot = $('#floatingChatRoot');
+                if (floatingRoot) {
+                    floatingRoot.style.display = (pageAttr === 'chat' || isChatTarget) ? 'none' : '';
+                }
+
+                // Gulir ke atas dengan instan agar transisi halaman langsung terlihat
+                window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+
+                // Eksekusi inline <script> di dalam #pjaxStage baru
+                const scripts = $$('script', curStage);
+                scripts.forEach(function (oldScript) {
+                    const newScript = document.createElement('script');
+                    Array.from(oldScript.attributes).forEach(function (attr) {
+                        newScript.setAttribute(attr.name, attr.value);
+                    });
+                    newScript.textContent = oldScript.textContent;
+                    oldScript.parentNode.replaceChild(newScript, oldScript);
+                });
+
+                // Inisialisasi ulang komponen interaktif pada halaman baru
+                initPageContent(curStage);
+                finishProgress();
+
+                // Jika halaman berasal dari cache, segarkan cache di latar belakang (Stale-While-Revalidate)
+                if (isCached && !isChatTarget) {
+                    fetchPageHtml(targetUrl, true).catch(function () {});
+                }
+            } catch (err) {
+                window.location.href = targetUrl;
+            }
+        }
     }
 
     /* ---------------------------------------------------------
        Muncul bertahap saat scroll
     --------------------------------------------------------- */
-    function initReveal() {
-        const items = $$('.reveal');
+    function initReveal(ctx) {
+        const items = $$('.reveal', ctx);
         if (!items.length) return;
 
         if (!('IntersectionObserver' in window)) {
@@ -278,11 +580,11 @@
                 if (entry.isIntersecting) {
                     setTimeout(function () {
                         entry.target.classList.add('is-visible');
-                    }, i * 55);
+                    }, i * 45);
                     io.unobserve(entry.target);
                 }
             });
-        }, { threshold: 0.06, rootMargin: '0px 0px -15px 0px' });
+        }, { threshold: 0.05, rootMargin: '0px 0px -10px 0px' });
 
         items.forEach(el => io.observe(el));
     }
@@ -290,9 +592,12 @@
     /* ---------------------------------------------------------
        Tab panel (tanpa reload + Sliding Tab Glider)
     --------------------------------------------------------- */
-    function initTabs() {
-        const tabGroups = $$('[data-tabs]');
+    function initTabs(ctx) {
+        const tabGroups = $$('[data-tabs]', ctx);
         tabGroups.forEach(function (group) {
+            if (group.dataset.tabsReady === '1') return;
+            group.dataset.tabsReady = '1';
+
             const tabsNav = $('.tabs', group) || group;
             const buttons = $$('.tab-btn', group);
             const panels = $$('.tab-panel', group);
@@ -303,20 +608,15 @@
                 tabGlider = document.createElement('span');
                 tabGlider.className = 'tab-glider';
                 tabsNav.appendChild(tabGlider);
-                tabsNav.classList.add('has-glider');
             }
 
             function updateTabGlider(activeBtn, animate) {
                 if (!tabGlider || !activeBtn) return;
-                const navRect = tabsNav.getBoundingClientRect();
-                const btnRect = activeBtn.getBoundingClientRect();
-                const x = btnRect.left - navRect.left + tabsNav.scrollLeft;
-                const y = btnRect.top - navRect.top;
                 if (!animate) tabGlider.style.transition = 'none';
                 else tabGlider.style.transition = '';
-                tabGlider.style.width = btnRect.width + 'px';
-                tabGlider.style.height = btnRect.height + 'px';
-                tabGlider.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+                tabGlider.style.width = activeBtn.offsetWidth + 'px';
+                tabGlider.style.height = activeBtn.offsetHeight + 'px';
+                tabGlider.style.transform = `translate3d(${activeBtn.offsetLeft}px, ${activeBtn.offsetTop}px, 0)`;
                 tabGlider.style.opacity = '1';
                 if (!animate) {
                     void tabGlider.offsetWidth;
@@ -341,7 +641,7 @@
                 if (push && window.history && window.history.replaceState) {
                     const url = new URL(window.location.href);
                     url.searchParams.set('tab', name);
-                    window.history.replaceState({}, '', url);
+                    window.history.replaceState({ url: url.href }, '', url);
                 }
             }
 
@@ -357,6 +657,7 @@
                 ? wanted
                 : (group.dataset.defaultTab || (buttons[0] && buttons[0].dataset.tab));
             if (initial) activate(initial, false, false);
+            if (tabsNav) tabsNav.classList.add('has-glider');
 
             window.addEventListener('resize', function () {
                 const cur = buttons.find(b => b.classList.contains('active'));
@@ -366,7 +667,7 @@
     }
 
     /* ---------------------------------------------------------
-       Modal
+       Modal (Event Delegation)
     --------------------------------------------------------- */
     function initModals() {
         function openModal(id) {
@@ -375,7 +676,7 @@
             m.classList.add('open');
             document.body.style.overflow = 'hidden';
             const first = m.querySelector('input, select, textarea');
-            if (first) setTimeout(function () { first.focus(); }, 120);
+            if (first) setTimeout(function () { first.focus(); }, 100);
         }
         function closeModal(m) {
             if (!m) return;
@@ -424,15 +725,17 @@
             ripple.style.left = (e.clientX - rect.left - size / 2) + 'px';
             ripple.style.top = (e.clientY - rect.top - size / 2) + 'px';
             btn.appendChild(ripple);
-            setTimeout(function () { ripple.remove(); }, 620);
+            setTimeout(function () { ripple.remove(); }, 600);
         });
     }
 
     /* ---------------------------------------------------------
        UX form: password, meter, penghitung karakter, loading
     --------------------------------------------------------- */
-    function initFormUX() {
-        $$('.pw-toggle').forEach(function (btn) {
+    function initFormUX(ctx) {
+        $$('.pw-toggle', ctx).forEach(function (btn) {
+            if (btn.dataset.bound === '1') return;
+            btn.dataset.bound = '1';
             btn.addEventListener('click', function () {
                 const input = document.getElementById(btn.dataset.target);
                 if (!input) return;
@@ -443,7 +746,9 @@
             });
         });
 
-        $$('[data-pw-meter]').forEach(function (input) {
+        $$('[data-pw-meter]', ctx).forEach(function (input) {
+            if (input.dataset.bound === '1') return;
+            input.dataset.bound = '1';
             const meter = $('#' + input.dataset.pwMeter);
             const hint = input.dataset.pwHint ? $('#' + input.dataset.pwHint) : null;
             const labels = ['Sangat lemah', 'Lemah', 'Cukup', 'Kuat', 'Sangat kuat'];
@@ -464,7 +769,9 @@
             });
         });
 
-        $$('[data-counter]').forEach(function (input) {
+        $$('[data-counter]', ctx).forEach(function (input) {
+            if (input.dataset.bound === '1') return;
+            input.dataset.bound = '1';
             const out = $('#' + input.dataset.counter);
             if (!out) return;
             const max = input.getAttribute('maxlength');
@@ -476,8 +783,9 @@
             update();
         });
 
-        $$('form').forEach(function (form) {
-            if (form.hasAttribute('data-no-loading')) return;
+        $$('form', ctx).forEach(function (form) {
+            if (form.hasAttribute('data-no-loading') || form.dataset.bound === '1') return;
+            form.dataset.bound = '1';
             form.addEventListener('submit', function (e) {
                 const required = form.querySelectorAll('[required]');
                 let valid = true;
@@ -502,6 +810,9 @@
                     return;
                 }
 
+                // Bersihkan cache PJAX saat ada perubahan data form
+                pjaxCache.clear();
+
                 const submitBtn = form.querySelector('button[type="submit"]');
                 if (submitBtn && !form.hasAttribute('data-no-loading')) {
                     submitBtn.classList.add('is-loading');
@@ -518,11 +829,12 @@
     /* ---------------------------------------------------------
        Pencarian & filter tabel admin
     --------------------------------------------------------- */
-    function initTableTools() {
-        const search = $('[data-table-search]');
-        const rows = $$('[data-table-row]');
-        const empty = $('[data-table-empty]');
-        const counter = $('[data-table-count]');
+    function initTableTools(ctx) {
+        const search = $('[data-table-search]', ctx);
+        const rows = $$('[data-table-row]', ctx);
+        const empty = $('[data-table-empty]', ctx);
+        const counter = $('[data-table-count]', ctx);
+        if (!search && !rows.length) return;
 
         function applyFilter() {
             const term = (search ? search.value : '').toLowerCase().trim();
@@ -539,7 +851,8 @@
             if (empty) empty.style.display = shown === 0 ? '' : 'none';
         }
 
-        if (search) {
+        if (search && search.dataset.bound !== '1') {
+            search.dataset.bound = '1';
             search.addEventListener('input', applyFilter);
             search.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape') { search.value = ''; applyFilter(); }
@@ -572,12 +885,19 @@
     }
     window.showToast = showToast;
 
-    function initToasts() {
-        toastWrap = document.createElement('div');
-        toastWrap.className = 'toast-wrap';
-        document.body.appendChild(toastWrap);
+    function initToasts(ctx) {
+        if (!toastWrap) {
+            toastWrap = $('.toast-wrap');
+            if (!toastWrap) {
+                toastWrap = document.createElement('div');
+                toastWrap.className = 'toast-wrap';
+                document.body.appendChild(toastWrap);
+            }
+        }
 
-        $$('.alert').forEach(function (alert) {
+        $$('.alert', ctx).forEach(function (alert) {
+            if (alert.dataset.toasted === '1') return;
+            alert.dataset.toasted = '1';
             showToast(alert.textContent.trim(), alert.classList.contains('alert-error') ? 'error' : 'success');
         });
     }
@@ -585,13 +905,13 @@
     /* ---------------------------------------------------------
        Animasi angka statistik
     --------------------------------------------------------- */
-    function initCounterAnimation() {
-        const nums = $$('[data-count]');
+    function initCounterAnimation(ctx) {
+        const nums = $$('[data-count]', ctx);
         if (!nums.length) return;
         nums.forEach(function (el) {
             el.classList.add('count-up');
             const target = parseFloat(el.dataset.count) || 0;
-            const dur = 750;
+            const dur = 650;
             const start = performance.now();
             function step(now) {
                 const p = Math.min((now - start) / dur, 1);
@@ -607,10 +927,14 @@
     /* ---------------------------------------------------------
        Smooth scroll untuk anchor
     --------------------------------------------------------- */
-    function initSmoothScroll() {
-        $$('a[href^="#"]').forEach(function (anchor) {
+    function initSmoothScroll(ctx) {
+        $$('a[href^="#"]', ctx).forEach(function (anchor) {
+            if (anchor.dataset.bound === '1') return;
+            anchor.dataset.bound = '1';
             anchor.addEventListener('click', function (e) {
-                const target = document.querySelector(this.getAttribute('href'));
+                const href = this.getAttribute('href');
+                if (!href || href === '#') return;
+                const target = document.querySelector(href);
                 if (!target) return;
                 e.preventDefault();
                 target.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -619,7 +943,7 @@
     }
 
     /* ---------------------------------------------------------
-       Lightbox Zoom Gambar Resolusi Tinggi
+       Lightbox Zoom Gambar Resolusi Tinggi (Event Delegation)
     --------------------------------------------------------- */
     function initLightbox() {
         const backdrop = $('#imageLightbox');
@@ -642,12 +966,11 @@
             document.body.style.overflow = '';
         }
 
-        $$('.detail-hero img, [data-lightbox]').forEach(function (img) {
-            img.style.cursor = 'zoom-in';
-            img.title = 'Klik untuk memperbesar gambar';
-            img.addEventListener('click', function () {
+        document.addEventListener('click', function (e) {
+            const img = e.target.closest('.detail-hero img, [data-lightbox]');
+            if (img) {
                 openLightbox(img.src, img.alt);
-            });
+            }
         });
 
         if (closeBtn) closeBtn.addEventListener('click', closeLightbox);
@@ -744,6 +1067,7 @@
             fd.append('id', id);
             try {
                 await fetch('chat-api.php', { method: 'POST', body: fd });
+                pjaxCache.delete(new URL('index.php', window.location.origin).href);
                 await loadMiniChat(false);
             } catch (err) {}
         });
@@ -785,6 +1109,7 @@
                 fd.append('message', msg);
                 try {
                     await fetch('chat-api.php', { method: 'POST', body: fd });
+                    pjaxCache.delete(new URL('index.php', window.location.origin).href);
                     await loadMiniChat(true);
                 } catch (e) {}
             });

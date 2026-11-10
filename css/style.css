@@ -2397,16 +2397,40 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 }
 
 /* ==========================================================================
-   11. SLIDING BUTTON GLIDER & SMOOTH DIRECTIONAL PAGE TRANSITIONS
+   11. SLIDING BUTTON GLIDER & INSTANT PJAX PAGE TRANSITIONS
    ========================================================================== */
 
-@view-transition {
-    navigation: auto;
+.pjax-stage {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    width: 100%;
+    position: relative;
 }
 
-/* Glider kapsul yang bergeser ke sebelah pada Navbar & Tab */
+/* Glider kapsul yang bergeser mulus ke sebelah pada Navbar */
 .main-nav ul {
     position: relative;
+    isolation: isolate;
+}
+.main-nav ul.has-glider li {
+    position: static;
+}
+.nav-hover-glider {
+    position: absolute;
+    top: 0;
+    left: 0;
+    border-radius: var(--radius-pill);
+    background: rgba(255, 255, 255, 0.10);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    transition:
+        transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        width 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        height 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.18s ease;
+    will-change: transform, width, height;
 }
 .nav-glider {
     position: absolute;
@@ -2414,7 +2438,61 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
     left: 0;
     border-radius: var(--radius-pill);
     background: linear-gradient(135deg, var(--primary-light), var(--secondary));
-    box-shadow: 0 6px 18px rgba(99, 102, 241, 0.48);
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.52);
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+    transition:
+        transform 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+        width 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+        height 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+        background 0.35s ease,
+        box-shadow 0.35s ease,
+        opacity 0.2s ease;
+    will-change: transform, width, height;
+}
+.nav-glider.is-chat {
+    background: linear-gradient(135deg, #10b981, #0ea5e9);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.48);
+}
+.nav-glider.is-moving {
+    box-shadow: 0 8px 26px rgba(56, 189, 248, 0.68);
+}
+.main-nav ul.has-glider li > a {
+    position: relative;
+    z-index: 2;
+    transition: color 0.25s ease, transform 0.25s ease !important;
+}
+.main-nav ul.has-glider li > a:not(.btn-logout):hover {
+    background: transparent;
+}
+.main-nav ul.has-glider li > a.active,
+.main-nav ul.has-glider li > a.active:hover {
+    background: transparent !important;
+    box-shadow: none !important;
+    border-color: transparent !important;
+    color: #fff !important;
+}
+
+/* Glider kapsul untuk Sort Filter (Terbaru / Terpopuler di Album & Cerita) */
+.sort-pill-group {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    background: var(--lighter);
+    border: 1px solid var(--border);
+    padding: 0.28rem;
+    border-radius: var(--radius-pill);
+    gap: 0.2rem;
+    isolation: isolate;
+}
+.sort-glider {
+    position: absolute;
+    top: 0;
+    left: 0;
+    border-radius: var(--radius-pill);
+    background: linear-gradient(135deg, var(--primary-light), var(--secondary));
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.38);
     pointer-events: none;
     z-index: 0;
     opacity: 0;
@@ -2423,20 +2501,37 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
         width 0.38s cubic-bezier(0.22, 1, 0.36, 1),
         height 0.38s cubic-bezier(0.22, 1, 0.36, 1),
         opacity 0.2s ease;
+    will-change: transform, width, height;
 }
-.main-nav ul.has-glider li > a {
+.sort-pill-btn {
     position: relative;
     z-index: 1;
+    padding: 0.42rem 1rem;
+    border-radius: var(--radius-pill);
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: color 0.25s ease;
+    cursor: pointer;
+    user-select: none;
 }
-.main-nav ul.has-glider li > a.active {
-    background: transparent !important;
-    box-shadow: none !important;
+.sort-pill-btn:hover {
+    color: var(--dark);
+}
+.sort-pill-btn.active,
+.sort-pill-btn.active:hover {
     color: #fff !important;
 }
+.sort-pill-group:not(.has-glider) .sort-pill-btn.active {
+    background: linear-gradient(135deg, var(--primary-light), var(--secondary));
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.38);
+}
 
-/* Glider untuk Tab Panel (.tabs) */
+/* Glider untuk Tab Panel (.tabs di Admin & Dasbor) */
 .tabs {
     position: relative;
+    isolation: isolate;
 }
 .tab-glider {
     position: absolute;
@@ -2449,10 +2544,11 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
     z-index: 0;
     opacity: 0;
     transition:
-        transform 0.36s cubic-bezier(0.22, 1, 0.36, 1),
-        width 0.36s cubic-bezier(0.22, 1, 0.36, 1),
-        height 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+        width 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+        height 0.38s cubic-bezier(0.22, 1, 0.36, 1),
         opacity 0.2s ease;
+    will-change: transform, width, height;
 }
 .tabs.has-glider .tab-btn {
     position: relative;
@@ -2464,48 +2560,30 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
     color: #fff !important;
 }
 
-/* Transisi Halaman Smooth & Geser Sebelah (Directional Slide) */
-@keyframes pageEnterFromRight {
-    0%   { opacity: 0; transform: translateX(32px) scale(0.99); }
-    100% { opacity: 1; transform: translateX(0) scale(1); }
+/* Transisi Halaman Instan & Directional Slide (Tanpa Delay Reload) */
+@keyframes pjaxEnterFromRight {
+    0%   { opacity: 0; transform: translate3d(34px, 0, 0) scale(0.992); }
+    100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
-@keyframes pageEnterFromLeft {
-    0%   { opacity: 0; transform: translateX(-32px) scale(0.99); }
-    100% { opacity: 1; transform: translateX(0) scale(1); }
+@keyframes pjaxEnterFromLeft {
+    0%   { opacity: 0; transform: translate3d(-34px, 0, 0) scale(0.992); }
+    100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
-@keyframes pageEnterSmooth {
-    0%   { opacity: 0; transform: translateY(16px) scale(0.992); }
-    100% { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-main {
-    animation: pageEnterSmooth 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
-    will-change: transform, opacity;
-}
-html[data-nav-dir="next"] main {
-    animation: pageEnterFromRight 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-html[data-nav-dir="prev"] main {
-    animation: pageEnterFromLeft 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+@keyframes pjaxEnterSmooth {
+    0%   { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.994); }
+    100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 
-body.is-leaving {
+.pjax-stage[data-slide-dir="next"] > main {
+    animation: pjaxEnterFromRight 0.36s cubic-bezier(0.22, 1, 0.36, 1) both !important;
+}
+.pjax-stage[data-slide-dir="prev"] > main {
+    animation: pjaxEnterFromLeft 0.36s cubic-bezier(0.22, 1, 0.36, 1) both !important;
+}
+.pjax-stage[data-slide-dir="fade"] > main {
+    animation: pjaxEnterSmooth 0.34s cubic-bezier(0.22, 1, 0.36, 1) both !important;
+}
+.pjax-stage[data-slide-dir] .page-anim {
     animation: none !important;
 }
-body.is-leaving header {
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
-}
-body.is-leaving main {
-    transition: opacity 0.24s cubic-bezier(0.4, 0, 0.2, 1), transform 0.24s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    opacity: 0 !important;
-    transform: translateY(10px) scale(0.99) !important;
-    animation: none !important;
-}
-body.is-leaving[data-leave-dir="next"] main {
-    transform: translateX(-28px) scale(0.99) !important;
-}
-body.is-leaving[data-leave-dir="prev"] main {
-    transform: translateX(28px) scale(0.99) !important;
-}
+

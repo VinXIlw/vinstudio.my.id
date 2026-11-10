@@ -595,31 +595,45 @@ include __DIR__ . '/includes/header.php';
         }
     }
 
-    window.addEventListener('resize', initCanvas);
-
-    window.addEventListener('mousemove', function(e) {
+    const onMove = function(e) {
         pointer.targetX = e.clientX;
         pointer.targetY = e.clientY;
         pointer.active = true;
-    }, { passive: true });
-
-    window.addEventListener('touchmove', function(e) {
+    };
+    const onTouch = function(e) {
         if (e.touches && e.touches[0]) {
             pointer.targetX = e.touches[0].clientX;
             pointer.targetY = e.touches[0].clientY;
             pointer.active = true;
         }
-    }, { passive: true });
-
-    window.addEventListener('mousedown', function() {
+    };
+    const onDown = function() {
         pointer.pulse = 1.0;
-    });
+    };
+
+    window.addEventListener('resize', initCanvas);
+    window.addEventListener('mousemove', onMove, { passive: true });
+    window.addEventListener('touchmove', onTouch, { passive: true });
+    window.addEventListener('mousedown', onDown);
 
     initCanvas();
 
     let startTime = performance.now();
+    let rafId = null;
+    let alive = true;
+
+    window.__pjaxCleanupFns = window.__pjaxCleanupFns || [];
+    window.__pjaxCleanupFns.push(function() {
+        alive = false;
+        if (rafId) cancelAnimationFrame(rafId);
+        window.removeEventListener('resize', initCanvas);
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('touchmove', onTouch);
+        window.removeEventListener('mousedown', onDown);
+    });
 
     function animate(now) {
+        if (!alive || !document.body.contains(canvas)) return;
         const t = (now - startTime) * 0.001;
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
@@ -718,10 +732,10 @@ include __DIR__ . '/includes/header.php';
         }
 
         ctx.globalAlpha = 1;
-        requestAnimationFrame(animate);
+        rafId = requestAnimationFrame(animate);
     }
 
-    requestAnimationFrame(animate);
+    rafId = requestAnimationFrame(animate);
 })();
 
 /* ==========================================================================
@@ -738,7 +752,12 @@ include __DIR__ . '/includes/header.php';
         return d.innerHTML;
     }
 
+    let homeChatTimer = null;
     async function refreshHomeChat() {
+        if (!document.body.contains(previewList)) {
+            if (homeChatTimer) clearInterval(homeChatTimer);
+            return;
+        }
         try {
             const res = await fetch('chat-api.php?action=fetch&limit=3&_t=' + Date.now(), { cache: 'no-store' });
             const data = await res.json();
@@ -799,7 +818,12 @@ include __DIR__ . '/includes/header.php';
 
     window.addEventListener('pageshow', refreshHomeChat);
     refreshHomeChat();
-    setInterval(refreshHomeChat, 3500);
+    homeChatTimer = setInterval(refreshHomeChat, 3500);
+    window.__pjaxCleanupFns = window.__pjaxCleanupFns || [];
+    window.__pjaxCleanupFns.push(function() {
+        if (homeChatTimer) clearInterval(homeChatTimer);
+        window.removeEventListener('pageshow', refreshHomeChat);
+    });
 })();
 </script>
 

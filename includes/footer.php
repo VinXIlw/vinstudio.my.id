@@ -2,9 +2,10 @@
 $isChatPage = (($currentPage ?? '') === 'chat');
 $currentUserFooter = currentUser();
 ?>
-    <?php if (!$isChatPage): ?>
+    </div><!-- /#pjaxStage -->
+
     <!-- Floating Mini Global Live Chat Drawer -->
-    <div class="floating-chat-root" id="floatingChatRoot">
+    <div class="floating-chat-root" id="floatingChatRoot" style="<?= $isChatPage ? 'display:none;' : '' ?>">
         <div class="floating-chat-panel" id="floatingChatPanel" aria-hidden="true">
             <div class="floating-chat-head">
                 <div style="display:flex;align-items:center;gap:0.55rem;">
@@ -15,7 +16,7 @@ $currentUserFooter = currentUser();
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:0.35rem;">
-                    <a href="chat.php" class="floating-head-btn" title="Buka Ruang Chat Penuh" data-no-transition>⛶</a>
+                    <a href="chat.php" class="floating-head-btn" title="Buka Ruang Chat Penuh">⛶</a>
                     <button type="button" id="floatingChatClose" class="floating-head-btn" title="Tutup">&times;</button>
                 </div>
             </div>
@@ -41,7 +42,6 @@ $currentUserFooter = currentUser();
             <span class="fab-label">Live Chat</span>
         </button>
     </div>
-    <?php endif; ?>
 
     <!-- Lightbox Modal untuk Zoom Gambar Resolusi Tinggi -->
     <div class="lightbox-backdrop" id="imageLightbox" aria-hidden="true">
@@ -102,6 +102,6 @@ $currentUserFooter = currentUser();
         </div>
     </footer>
 
-    <script src="js/main.js?v=4.0"></script>
+    <script src="js/main.js?v=<?= @filemtime(__DIR__ . '/../js/main.js') ?: '5.0' ?>"></script>
 </body>
 </html>

@@ -292,7 +292,12 @@ include __DIR__ . '/includes/header.php';
         }).join('');
     }
 
+    let chatPollTimer = null;
     async function fetchMessages() {
+        if (!document.body.contains(messagesList)) {
+            if (chatPollTimer) clearInterval(chatPollTimer);
+            return;
+        }
         if (isFetching) return;
         isFetching = true;
         try {
@@ -472,7 +477,11 @@ include __DIR__ . '/includes/header.php';
     }
 
     fetchMessages();
-    setInterval(fetchMessages, 2500);
+    chatPollTimer = setInterval(fetchMessages, 2500);
+    window.__pjaxCleanupFns = window.__pjaxCleanupFns || [];
+    window.__pjaxCleanupFns.push(function() {
+        if (chatPollTimer) clearInterval(chatPollTimer);
+    });
 })();
 </script>
 
