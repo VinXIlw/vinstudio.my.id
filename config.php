@@ -1,6 +1,6 @@
 <?php
 /**
- * VinStudio - Konfigurasi Utama & Koneksi Database
+ * XI TKJ 1 - Konfigurasi Utama & Koneksi Database
  * Mendukung MySQL (cPanel) dengan auto-fallback SQLite jika MySQL belum di-setup.
  */
 
@@ -19,8 +19,8 @@ define('DB_PASS', '');              // Password user database MySQL
 define('DB_PORT', '3306');
 
 // Nama & Branding Aplikasi
-define('APP_NAME', 'VinStudio');
-define('APP_TAGLINE', 'Creative Digital Hub & Community Portal');
+define('APP_NAME', 'XI TKJ 1');
+define('APP_TAGLINE', 'Portal Digital Teknik Komputer & Jaringan');
 
 // ============================================================
 // INISIALISASI KONEKSI PDO (MySQL dengan Fallback ke SQLite)
@@ -193,18 +193,10 @@ function initDatabase($pdo, $driver) {
         $stmt->execute([$adminEmail, $adminName, $adminPass]);
     }
 
-    // Seed pesan sambutan awal di Global Chat jika tabel masih kosong
-    $checkChat = $pdo->query("SELECT COUNT(*) as cnt FROM chat_messages")->fetch();
-    if ($checkChat && $checkChat['cnt'] == 0) {
-        $adminRow = $pdo->query("SELECT id FROM users ORDER BY id ASC LIMIT 1")->fetch();
-        if ($adminRow) {
-            $stmtChat = $pdo->prepare("INSERT INTO chat_messages (user_id, message) VALUES (?, ?)");
-            $stmtChat->execute([
-                $adminRow['id'],
-                'Halo semuanya! Selamat datang di Global Live Chat VinStudio 👋 Silakan berdiskusi, berbagi ide, atau menyapa anggota lainnya di sini!'
-            ]);
-        }
-    }
+    // Hapus pesan sambutan otomatis bawaan lama agar tidak muncul kembali setelah dihapus
+    try {
+        $pdo->exec("DELETE FROM chat_messages WHERE message LIKE 'Halo semuanya! Selamat datang di Global Live Chat%'");
+    } catch (Exception $e) {}
 }
 
 // ============================================================

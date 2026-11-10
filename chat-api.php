@@ -1,7 +1,7 @@
 <?php
 /**
- * VinStudio - Global Live Chat AJAX API
- * Mendukung operasi: fetch, send, delete, clear (admin)
+ * XI TKJ 1 - Global Live Chat AJAX API
+ * Mendukung operasi: fetch, send, delete, clear_all (admin)
  */
 require_once __DIR__ . '/config.php';
 
@@ -39,7 +39,7 @@ function formatChatMessage($row, $currentUser) {
 try {
     if ($action === 'fetch') {
         $afterId = isset($_GET['after_id']) ? (int)$_GET['after_id'] : 0;
-        $limit = isset($_GET['limit']) ? min(120, max(10, (int)$_GET['limit'])) : 80;
+        $limit = isset($_GET['limit']) ? min(120, max(1, (int)$_GET['limit'])) : 80;
 
         if ($afterId > 0) {
             $stmt = $pdo->prepare("
@@ -106,13 +106,15 @@ try {
         }
 
         $totalMessages = (int)$pdo->query("SELECT COUNT(*) FROM chat_messages")->fetchColumn();
+        $allIds = $pdo->query("SELECT id FROM chat_messages ORDER BY id ASC")->fetchAll(PDO::FETCH_COLUMN);
 
         echo json_encode([
             'ok'             => true,
             'messages'       => $messages,
             'members'        => $members,
             'online_count'   => max(1, $onlineCount),
-            'total_messages' => $totalMessages
+            'total_messages' => $totalMessages,
+            'active_ids'     => array_map('intval', $allIds)
         ]);
         exit;
     }
@@ -124,7 +126,6 @@ try {
             exit;
         }
 
-        // Cek status ban
         $uStmt = $pdo->prepare("SELECT is_banned FROM users WHERE id = ?");
         $uStmt->execute([$user['id']]);
         if ((int)$uStmt->fetchColumn() === 1) {
@@ -148,7 +149,6 @@ try {
         $ins->execute([$user['id'], $message, $replyToId]);
         $newId = (int)$pdo->lastInsertId();
 
-        // Update aktivitas user
         $pdo->prepare("UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$user['id']]);
 
         $sel = $pdo->prepare("
@@ -183,7 +183,7 @@ try {
         $msg = $stmt->fetch();
 
         if (!$msg) {
-            echo json_encode(['ok' => false, 'error' => 'Pesan tidak ditemukan.']);
+            echo json_encode(['ok' => true, 'deleted_id' => $msgId]);
             exit;
         }
 
@@ -195,6 +195,17 @@ try {
 
         $pdo->prepare("DELETE FROM chat_messages WHERE id = ?")->execute([$msgId]);
         echo json_encode(['ok' => true, 'deleted_id' => $msgId]);
+        exit;
+    }
+
+    if ($action === 'clear_all' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (!$user || $user['role'] !== 'admin') {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'error' => 'Hanya Administrator yang dapat membersihkan seluruh chat.']);
+            exit;
+        }
+        $pdo->exec("DELETE FROM chat_messages");
+        echo json_encode(['ok' => true]);
         exit;
     }
 

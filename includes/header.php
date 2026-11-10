@@ -4,7 +4,7 @@ $title = isset($pageTitle) ? htmlspecialchars($pageTitle) . ' — ' . APP_NAME :
 $current = $currentPage ?? '';
 ?>
 <!DOCTYPE html>
-<html lang="id" data-theme="light">
+<html lang="id" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,13 +13,15 @@ $current = $currentPage ?? '';
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=2.0">
+    <link rel="stylesheet" href="css/style.css?v=3.0">
     <link rel="icon" href="img/placeholder.svg" type="image/svg+xml">
     <script>
         (function() {
             try {
                 var saved = localStorage.getItem('vinstudio_theme');
-                if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                if (saved === 'light') {
+                    document.documentElement.setAttribute('data-theme', 'light');
+                } else {
                     document.documentElement.setAttribute('data-theme', 'dark');
                 }
             } catch (e) {}
@@ -35,7 +37,7 @@ $current = $currentPage ?? '';
                 </span>
                 <div class="logo-brand-stack">
                     <span class="logo-text"><?= APP_NAME ?></span>
-                    <span class="logo-sub">DIGITAL HUB</span>
+                    <span class="logo-sub">TKJ DIGITAL HUB</span>
                 </div>
             </a>
 

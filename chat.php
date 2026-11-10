@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
 
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+
 $pageTitle = 'Global Live Chat';
 $currentPage = 'chat';
 $user = currentUser();
@@ -20,7 +22,7 @@ include __DIR__ . '/includes/header.php';
                         <span>LIVE GLOBAL</span>
                     </div>
                     <div>
-                        <h1>Ruang Obrolan Komunitas</h1>
+                        <h1>Ruang Obrolan <?= APP_NAME ?></h1>
                         <p class="chat-subtitle">Ngobrol real-time bersama seluruh anggota <?= APP_NAME ?> &middot; <span id="chatTotalCounter">Memuat...</span></p>
                     </div>
                 </div>
@@ -28,6 +30,11 @@ include __DIR__ . '/includes/header.php';
                     <button type="button" id="soundToggleBtn" class="btn btn-outline btn-sm" title="Aktifkan/Matikan Suara Notifikasi">
                         <span id="soundIcon">🔔</span> <span class="hide-sm">Suara</span>
                     </button>
+                    <?php if ($user && $user['role'] === 'admin'): ?>
+                    <button type="button" id="clearAllChatBtn" class="btn btn-outline btn-sm" style="border-color:rgba(244,63,94,0.45);color:#fda4af;" title="Bersihkan Semua Pesan">
+                        🗑 <span class="hide-sm">Bersihkan</span>
+                    </button>
+                    <?php endif; ?>
                     <button type="button" id="scrollBottomBtn" class="btn btn-ghost btn-sm" title="Gulir ke pesan terbaru">
                         &darr; Terbaru
                     </button>
@@ -40,7 +47,7 @@ include __DIR__ . '/includes/header.php';
                     <div class="chat-welcome-icon">💬</div>
                     <div>
                         <strong>Selamat datang di Global Live Chat <?= APP_NAME ?>!</strong>
-                        <p>Jaga kesopanan, saling menghargai, dan bagikan ide atau obrolan seru bersama teman-teman komunitas.</p>
+                        <p>Jaga kesopanan, saling menghargai, dan bagikan ide atau obrolan seru bersama teman-teman kelas.</p>
                     </div>
                 </div>
                 <div id="chatMessagesList" class="chat-messages-list">
@@ -94,7 +101,7 @@ include __DIR__ . '/includes/header.php';
             <div class="chat-sidebar-head">
                 <h2>
                     <span class="status-dot online"></span>
-                    Anggota Komunitas
+                    Anggota <?= APP_NAME ?>
                 </h2>
                 <span class="online-pill" id="onlineCountBadge">1 Online</span>
             </div>
@@ -123,10 +130,11 @@ include __DIR__ . '/includes/header.php';
     const soundToggleBtn = document.getElementById('soundToggleBtn');
     const soundIcon = document.getElementById('soundIcon');
     const scrollBottomBtn = document.getElementById('scrollBottomBtn');
+    const clearAllBtn = document.getElementById('clearAllChatBtn');
 
     let lastMessageId = 0;
     let isFirstLoad = true;
-    let soundEnabled = localStorage.getItem('vinstudio_chat_sound') !== 'off';
+    let soundEnabled = localStorage.getItem('xitkj1_chat_sound') !== 'off';
     let isFetching = false;
 
     function updateSoundUI() {
@@ -138,7 +146,7 @@ include __DIR__ . '/includes/header.php';
     if (soundToggleBtn) {
         soundToggleBtn.addEventListener('click', function() {
             soundEnabled = !soundEnabled;
-            localStorage.setItem('vinstudio_chat_sound', soundEnabled ? 'on' : 'off');
+            localStorage.setItem('xitkj1_chat_sound', soundEnabled ? 'on' : 'off');
             updateSoundUI();
         });
     }
@@ -150,8 +158,8 @@ include __DIR__ . '/includes/header.php';
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-            osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.08); // A5
+            osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.08);
             gain.gain.setValueAtTime(0.08, ctx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.14);
             osc.connect(gain);
@@ -205,6 +213,17 @@ include __DIR__ . '/includes/header.php';
         cancelReplyBtn.addEventListener('click', clearReply);
     }
 
+    function showEmptyIfNeeded() {
+        if (!messagesList) return;
+        const items = messagesList.querySelectorAll('.chat-msg-item');
+        const existingEmpty = messagesList.querySelector('.empty-state');
+        if (items.length === 0 && !existingEmpty) {
+            messagesList.innerHTML = '<div class="empty-state" style="padding:2rem;">Belum ada obrolan. Mulailah menyapa teman-teman!</div>';
+        } else if (items.length > 0 && existingEmpty) {
+            existingEmpty.remove();
+        }
+    }
+
     function buildMessageElement(m) {
         const item = document.createElement('div');
         item.className = 'chat-msg-item' + (m.is_mine ? ' is-mine' : '');
@@ -223,11 +242,11 @@ include __DIR__ . '/includes/header.php';
             : '';
 
         const deleteBtn = m.can_delete
-            ? `<button type="button" class="chat-action-btn delete" data-del-id="${m.id}" title="Hapus pesan">Hapus</button>`
+            ? `<button type="button" class="chat-action-btn delete" data-del-id="${m.id}" title="Hapus pesan">🗑 Hapus</button>`
             : '';
 
         const replyBtn = <?= $user ? 'true' : 'false' ?>
-            ? `<button type="button" class="chat-action-btn reply" data-reply-id="${m.id}" data-reply-user="${escapeHtml(m.display_name)}" data-reply-text="${escapeHtml(m.message)}" title="Balas pesan">Balas</button>`
+            ? `<button type="button" class="chat-action-btn reply" data-reply-id="${m.id}" data-reply-user="${escapeHtml(m.display_name)}" data-reply-text="${escapeHtml(m.message)}" title="Balas pesan">↩ Balas</button>`
             : '';
 
         item.innerHTML = `
@@ -253,7 +272,7 @@ include __DIR__ . '/includes/header.php';
 
     function renderMembers(members, onlineCount) {
         if (onlineBadge) onlineBadge.textContent = onlineCount + ' Online';
-        if (!membersList || ! Array.isArray(members)) return;
+        if (!membersList || !Array.isArray(members)) return;
         membersList.innerHTML = members.map(function(u) {
             return `
                 <div class="chat-member-row">
@@ -277,8 +296,8 @@ include __DIR__ . '/includes/header.php';
         if (isFetching) return;
         isFetching = true;
         try {
-            const url = 'chat-api.php?action=fetch&after_id=' + lastMessageId;
-            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            const url = 'chat-api.php?action=fetch&after_id=' + lastMessageId + '&_t=' + Date.now();
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
             const data = await res.json();
             if (!data || !data.ok) return;
 
@@ -291,6 +310,17 @@ include __DIR__ . '/includes/header.php';
 
             if (isFirstLoad) {
                 messagesList.innerHTML = '';
+            }
+
+            // Sinkronisasi pesan yang sudah dihapus di server agar langsung hilang dari layar
+            if (Array.isArray(data.active_ids)) {
+                const activeSet = new Set(data.active_ids.map(Number));
+                messagesList.querySelectorAll('.chat-msg-item').forEach(function(el) {
+                    const idNum = Number(el.dataset.id);
+                    if (!activeSet.has(idNum)) {
+                        el.remove();
+                    }
+                });
             }
 
             if (Array.isArray(data.messages) && data.messages.length > 0) {
@@ -313,13 +343,11 @@ include __DIR__ . '/includes/header.php';
                 if (hasForeignNew) {
                     playNotificationPop();
                 }
-            } else if (isFirstLoad && lastMessageId === 0) {
-                messagesList.innerHTML = '<div class="empty-state" style="padding:2rem;">Belum ada obrolan. Mulailah menyapa teman-teman!</div>';
             }
 
+            showEmptyIfNeeded();
             isFirstLoad = false;
         } catch (err) {
-            // Abaikan gangguan jaringan sesaat
         } finally {
             isFetching = false;
         }
@@ -341,19 +369,44 @@ include __DIR__ . '/includes/header.php';
             const delBtn = e.target.closest('[data-del-id]');
             if (delBtn) {
                 const id = delBtn.getAttribute('data-del-id');
-                if (!confirm('Hapus pesan ini dari Global Chat?')) return;
+                const row = document.getElementById('chat-msg-' + id);
+                if (row) {
+                    row.style.opacity = '0.35';
+                    row.style.transform = 'scale(0.96)';
+                }
                 const fd = new FormData();
                 fd.append('action', 'delete');
                 fd.append('id', id);
                 try {
                     const res = await fetch('chat-api.php', { method: 'POST', body: fd });
                     const data = await res.json();
-                    if (data.ok) {
-                        const row = document.getElementById('chat-msg-' + id);
+                    if (data && data.ok) {
                         if (row) row.remove();
+                        showEmptyIfNeeded();
+                        if (window.showToast) window.showToast('Pesan berhasil dihapus.', 'success');
+                        fetchMessages();
                     }
                 } catch (e) {}
             }
+        });
+    }
+
+    if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', async function() {
+            if (!confirm('Bersihkan seluruh riwayat pesan di Global Live Chat?')) return;
+            const fd = new FormData();
+            fd.append('action', 'clear_all');
+            try {
+                const res = await fetch('chat-api.php', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (data && data.ok) {
+                    messagesList.innerHTML = '';
+                    lastMessageId = 0;
+                    showEmptyIfNeeded();
+                    if (totalCounter) totalCounter.textContent = '0 pesan terkirim';
+                    if (window.showToast) window.showToast('Seluruh pesan chat telah dibersihkan.', 'success');
+                }
+            } catch (e) {}
         });
     }
 
@@ -405,6 +458,7 @@ include __DIR__ . '/includes/header.php';
                         messagesList.appendChild(buildMessageElement(m));
                     }
                     scrollToBottom(true);
+                    fetchMessages();
                 } else if (data && data.error) {
                     alert(data.error);
                 }

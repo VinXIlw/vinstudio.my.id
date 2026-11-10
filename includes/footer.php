@@ -10,7 +10,7 @@ $currentUserFooter = currentUser();
                 <div style="display:flex;align-items:center;gap:0.55rem;">
                     <span class="nav-live-dot"></span>
                     <div>
-                        <strong style="display:block;font-size:0.92rem;line-height:1.15;">Global Live Chat</strong>
+                        <strong style="display:block;font-size:0.92rem;line-height:1.15;">Live Chat <?= APP_NAME ?></strong>
                         <small style="font-size:0.72rem;opacity:0.8;" id="floatingOnlineText">Terhubung langsung</small>
                     </div>
                 </div>
@@ -61,7 +61,7 @@ $currentUserFooter = currentUser();
                         <span class="logo-text"><?= APP_NAME ?></span>
                     </div>
                     <p class="footer-desc">
-                        Platform kreatif digital untuk mendokumentasikan portofolio foto, berbagi karya tulis &amp; artikel, serta berinteraksi secara langsung melalui Global Live Chat.
+                        Portal resmi komunitas <strong><?= APP_NAME ?></strong> untuk mendokumentasikan portofolio foto, berbagi karya tulis &amp; artikel, serta berinteraksi secara langsung melalui Global Live Chat.
                     </p>
                     <div class="footer-status-pill">
                         <span class="status-dot online"></span>
@@ -96,12 +96,12 @@ $currentUserFooter = currentUser();
             </div>
 
             <div class="footer-bottom">
-                <p>&copy; <?= date('Y') ?> <strong><?= APP_NAME ?></strong> (vinstudio.my.id). Seluruh hak cipta dilindungi.</p>
-                <p class="footer-tech">Ditenagai arsitektur modern yang cepat, responsif &amp; aman.</p>
+                <p>&copy; <?= date('Y') ?> <strong><?= APP_NAME ?></strong>. Seluruh hak cipta dilindungi.</p>
+                <p class="footer-tech">Ditenagai arsitektur modern yang cepat, responsif &amp; interaktif.</p>
             </div>
         </div>
     </footer>
 
-    <script src="js/main.js?v=2.0"></script>
+    <script src="js/main.js?v=3.0"></script>
 </body>
 </html>

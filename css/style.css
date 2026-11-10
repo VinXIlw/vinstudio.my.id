@@ -1,4 +1,4 @@
-/* ==========================================================================
+﻿/* ==========================================================================
    TKJ CONNECT — Design System
    Portal profil kelas Teknik Komputer dan Jaringan
    --------------------------------------------------------------------------
@@ -1552,14 +1552,7 @@ body.is-leaving main, body.is-leaving header { animation: fadeOutPage .22s var(-
     .stat-box .stat-value { font-size: 1.3rem; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
-        animation-duration: .01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: .01ms !important;
-        scroll-behavior: auto !important;
-    }
-}
+
 
 /* Print */
 @media print {
@@ -1837,7 +1830,8 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
     display: flex;
     align-items: flex-start;
     gap: 0.75rem;
-    animation: fadeUp 0.22s var(--ease-out) both;
+    animation: msgPopIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+    transition: opacity 0.2s ease, transform 0.2s ease;
 }
 .chat-msg-item.is-mine {
     flex-direction: row-reverse;
@@ -1915,28 +1909,33 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 .chat-msg-actions {
     display: flex;
     gap: 0.5rem;
-    margin-top: 0.22rem;
-    opacity: 0;
+    margin-top: 0.32rem;
+    opacity: 0.9;
     transition: opacity 0.15s ease;
 }
 .chat-msg-item:hover .chat-msg-actions {
     opacity: 1;
 }
 .chat-action-btn {
-    background: none;
-    border: none;
-    padding: 0;
-    font-size: 0.72rem;
+    background: var(--white);
+    border: 1px solid var(--border);
+    padding: 0.16rem 0.52rem;
+    border-radius: 6px;
+    font-size: 0.71rem;
     font-weight: 600;
     color: var(--text-light);
     cursor: pointer;
+    transition: all 0.18s ease;
 }
 .chat-action-btn:hover {
     color: var(--primary);
-    text-decoration: underline;
+    border-color: var(--primary-light);
+    transform: translateY(-1px);
 }
 .chat-action-btn.delete:hover {
-    color: var(--danger);
+    color: #fff;
+    background: var(--danger);
+    border-color: var(--danger);
 }
 
 .chat-reply-banner {
@@ -2351,4 +2350,48 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
     .hide-sm {
         display: none;
     }
+}
+
+/* ---------- 10. FULL INTERACTIVE & AMBIENT ANIMATIONS ---------- */
+@keyframes auroraFloat1 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50%      { transform: translate(-45px, 35px) scale(1.14); }
+}
+@keyframes auroraFloat2 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50%      { transform: translate(50px, -30px) scale(1.18); }
+}
+@keyframes textGradientFlow {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+@keyframes msgPopIn {
+    0%   { opacity: 0; transform: translateY(14px) scale(0.96); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes cardEntrance {
+    0%   { opacity: 0; transform: translateY(24px) scale(0.98); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.album-card,
+.story-card,
+.bento-card,
+.stat-box,
+.member-card {
+    animation: cardEntrance 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.album-card:nth-child(1), .story-card:nth-child(1), .stat-box:nth-child(1) { animation-delay: 0.05s; }
+.album-card:nth-child(2), .story-card:nth-child(2), .stat-box:nth-child(2) { animation-delay: 0.12s; }
+.album-card:nth-child(3), .story-card:nth-child(3), .stat-box:nth-child(3) { animation-delay: 0.19s; }
+.album-card:nth-child(4), .story-card:nth-child(4), .stat-box:nth-child(4) { animation-delay: 0.26s; }
+.album-card:nth-child(5), .story-card:nth-child(5), .stat-box:nth-child(5) { animation-delay: 0.33s; }
+.album-card:nth-child(6), .story-card:nth-child(6), .stat-box:nth-child(6) { animation-delay: 0.40s; }
+
+.album-card:hover,
+.story-card:hover,
+.bento-card:hover {
+    border-color: rgba(99, 102, 241, 0.45);
+    box-shadow: 0 18px 40px -10px rgba(79, 70, 229, 0.22);
 }

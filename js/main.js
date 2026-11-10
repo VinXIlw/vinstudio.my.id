@@ -1,9 +1,9 @@
 /*
-  VinStudio Digital Hub — Main Interactive JavaScript
+  XI TKJ 1 Digital Hub — Main Interactive JavaScript
   Fitur:
     - Dark / Light Mode Toggle dengan persistensi localStorage
     - Progress bar navigasi & transisi halaman halus
-    - Floating Mini Global Live Chat Drawer
+    - Floating Mini Global Live Chat Drawer (dengan fitur Hapus & Live Sync)
     - Lightbox Zoom Gambar Resolusi Tinggi
     - Copy Link Share & Toast Notifikasi
     - Tab panel, Modal, Ripple, dan Form UX
@@ -144,7 +144,7 @@
                     io.unobserve(entry.target);
                 }
             });
-        }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+        }, { threshold: 0.08, rootMargin: '0px 0px -20px 0px' });
 
         items.forEach(el => io.observe(el));
     }
@@ -434,7 +434,7 @@
         nums.forEach(function (el) {
             el.classList.add('count-up');
             const target = parseFloat(el.dataset.count) || 0;
-            const dur = 700;
+            const dur = 750;
             const start = performance.now();
             function step(now) {
                 const p = Math.min((now - start) / dur, 1);
@@ -537,7 +537,6 @@
         if (!fab || !panel || !body) return;
 
         let pollTimer = null;
-        let lastMiniId = 0;
 
         function escapeHtml(s) {
             const d = document.createElement('div');
@@ -547,7 +546,7 @@
 
         async function loadMiniChat(scrollBottom) {
             try {
-                const res = await fetch('chat-api.php?action=fetch&limit=25');
+                const res = await fetch('chat-api.php?action=fetch&limit=25&_t=' + Date.now(), { cache: 'no-store' });
                 const data = await res.json();
                 if (!data || !data.ok) return;
 
@@ -555,26 +554,42 @@
                     onlineText.textContent = data.online_count + ' anggota online';
                 }
 
-                if (Array.isArray(data.messages)) {
-                    const newest = data.messages.length ? data.messages[data.messages.length - 1].id : 0;
-                    if (newest !== lastMiniId || scrollBottom) {
-                        lastMiniId = newest;
-                        body.innerHTML = data.messages.map(function (m) {
-                            return `
-                                <div class="mini-msg-item ${m.is_mine ? 'is-mine' : ''}">
-                                    <div class="mini-msg-top">
-                                        <strong style="color:var(--dark);">${escapeHtml(m.display_name)}</strong>
-                                        <span style="color:var(--muted);">${escapeHtml(m.time_clock)}</span>
-                                    </div>
-                                    <div style="color:var(--text-soft);word-break:break-word;">${escapeHtml(m.message)}</div>
+                if (Array.isArray(data.messages) && data.messages.length > 0) {
+                    body.innerHTML = data.messages.map(function (m) {
+                        const delBtn = m.can_delete
+                            ? `<button type="button" data-mini-del="${m.id}" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:0.72rem;" title="Hapus">🗑</button>`
+                            : '';
+                        return `
+                            <div class="mini-msg-item ${m.is_mine ? 'is-mine' : ''}" data-mini-id="${m.id}">
+                                <div class="mini-msg-top">
+                                    <strong style="color:var(--dark);">${escapeHtml(m.display_name)}</strong>
+                                    <span style="color:var(--muted);display:flex;align-items:center;gap:0.35rem;">
+                                        ${escapeHtml(m.time_clock)} ${delBtn}
+                                    </span>
                                 </div>
-                            `;
-                        }).join('');
-                        body.scrollTop = body.scrollHeight;
-                    }
+                                <div style="color:var(--text-soft);word-break:break-word;">${escapeHtml(m.message)}</div>
+                            </div>
+                        `;
+                    }).join('');
+                    if (scrollBottom) body.scrollTop = body.scrollHeight;
+                } else {
+                    body.innerHTML = '<div class="admin-hint" style="text-align:center;padding:2rem 0.5rem;">Belum ada obrolan. Yuk sapa teman-teman!</div>';
                 }
             } catch (e) {}
         }
+
+        body.addEventListener('click', async function (e) {
+            const delBtn = e.target.closest('[data-mini-del]');
+            if (!delBtn) return;
+            const id = delBtn.getAttribute('data-mini-del');
+            const fd = new FormData();
+            fd.append('action', 'delete');
+            fd.append('id', id);
+            try {
+                await fetch('chat-api.php', { method: 'POST', body: fd });
+                await loadMiniChat(false);
+            } catch (err) {}
+        });
 
         fab.addEventListener('click', function () {
             const isOpen = panel.classList.toggle('open');
@@ -583,7 +598,7 @@
                 loadMiniChat(true);
                 if (input) setTimeout(() => input.focus(), 100);
                 if (!pollTimer) {
-                    pollTimer = setInterval(() => loadMiniChat(false), 3500);
+                    pollTimer = setInterval(() => loadMiniChat(false), 3000);
                 }
             } else if (pollTimer) {
                 clearInterval(pollTimer);

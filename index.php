@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
 
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+
 $pageTitle = 'Beranda';
 $currentPage = 'home';
 
@@ -58,27 +60,29 @@ include __DIR__ . '/includes/header.php';
         overflow: hidden;
         box-shadow: var(--shadow-lg);
         margin-bottom: 2.25rem;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.12);
     }
     .hero-banner::before {
         content: '';
         position: absolute;
-        width: 520px;
-        height: 520px;
-        background: radial-gradient(circle, rgba(99, 102, 241, 0.32) 0%, transparent 70%);
+        width: 540px;
+        height: 540px;
+        background: radial-gradient(circle, rgba(99, 102, 241, 0.38) 0%, transparent 70%);
         top: -180px;
         right: -120px;
         border-radius: 50%;
+        animation: auroraFloat1 10s ease-in-out infinite;
     }
     .hero-banner::after {
         content: '';
         position: absolute;
-        width: 420px;
-        height: 420px;
-        background: radial-gradient(circle, rgba(14, 165, 233, 0.24) 0%, transparent 70%);
+        width: 440px;
+        height: 440px;
+        background: radial-gradient(circle, rgba(14, 165, 233, 0.28) 0%, transparent 70%);
         bottom: -140px;
         left: -60px;
         border-radius: 50%;
+        animation: auroraFloat2 13s ease-in-out infinite;
     }
     .hero-content {
         position: relative;
@@ -107,10 +111,12 @@ include __DIR__ . '/includes/header.php';
         margin-bottom: 1.1rem;
     }
     .hero-title .brand-gradient {
-        background: linear-gradient(90deg, #38bdf8, #818cf8, #c084fc);
+        background: linear-gradient(90deg, #38bdf8, #818cf8, #c084fc, #38bdf8);
+        background-size: 200% auto;
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
+        animation: textGradientFlow 5s linear infinite;
     }
     .hero-desc {
         font-size: 1.12rem;
@@ -134,11 +140,13 @@ include __DIR__ . '/includes/header.php';
         display: flex;
         align-items: center;
         gap: 0.85rem;
-        transition: transform 0.25s ease, background 0.25s ease;
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
     }
     .hero-stat-badge:hover {
-        transform: translateY(-3px);
-        background: rgba(255, 255, 255, 0.12);
+        transform: translateY(-5px) scale(1.02);
+        background: rgba(255, 255, 255, 0.14);
+        border-color: rgba(56, 189, 248, 0.45);
+        box-shadow: 0 12px 28px rgba(14, 165, 233, 0.22);
     }
     .hero-stat-badge .num {
         font-size: 1.75rem;
@@ -167,22 +175,49 @@ include __DIR__ . '/includes/header.php';
         display: flex;
         flex-direction: column;
         justify-content: space-between;
+        transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease, border-color 0.35s ease;
+    }
+    .bento-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-md);
     }
     .chat-preview-list {
         display: flex;
         flex-direction: column;
         gap: 0.65rem;
         margin: 1rem 0 1.25rem;
+        min-height: 120px;
     }
     .chat-preview-item {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         gap: 0.65rem;
-        padding: 0.6rem 0.85rem;
+        padding: 0.65rem 0.85rem;
         border-radius: 12px;
         background: var(--lighter);
         border: 1px solid var(--border);
         font-size: 0.85rem;
+        animation: fadeUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .chat-preview-item:hover {
+        transform: translateX(4px);
+        border-color: var(--primary-light);
+    }
+    .preview-del-btn {
+        background: rgba(239, 68, 68, 0.12);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: #f87171;
+        border-radius: 7px;
+        padding: 0.2rem 0.45rem;
+        font-size: 0.72rem;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: all 0.2s ease;
+    }
+    .preview-del-btn:hover {
+        background: #ef4444;
+        color: #fff;
     }
     .card-preview-link {
         text-decoration: none;
@@ -210,7 +245,7 @@ include __DIR__ . '/includes/header.php';
         <div class="hero-content">
             <div class="hero-eyebrow">
                 <span class="nav-live-dot"></span>
-                <span><?= htmlspecialchars($profile['class_name'] ?? 'VinStudio Creative Hub') ?> &middot; Tahun <?= htmlspecialchars($profile['school_year'] ?? '2026/2027') ?></span>
+                <span><?= htmlspecialchars($profile['class_name'] ?? 'Kelas XI TKJ 1') ?> &middot; Tahun <?= htmlspecialchars($profile['school_year'] ?? '2026/2027') ?></span>
             </div>
             <h1 class="hero-title">
                 Ruang Karya Digital &amp; Komunitas <span class="brand-gradient"><?= APP_NAME ?></span>
@@ -245,7 +280,7 @@ include __DIR__ . '/includes/header.php';
                     <div class="lbl">Anggota<br>Terdaftar</div>
                 </div>
                 <div class="hero-stat-badge">
-                    <span class="num" data-count="<?= $chatCount ?>"><?= $chatCount ?></span>
+                    <span class="num" id="homeChatStatCount" data-count="<?= $chatCount ?>"><?= $chatCount ?></span>
                     <div class="lbl">Pesan di<br>Live Chat</div>
                 </div>
             </div>
@@ -255,13 +290,13 @@ include __DIR__ . '/includes/header.php';
     <!-- Bento Grid: Profil Singkat & Spotlight Global Live Chat -->
     <div class="bento-two-col page-anim">
         <?php if ($profile): ?>
-        <section class="bento-card" style="border-top:4px solid var(--primary);">
+        <section class="bento-card reveal" style="border-top:4px solid var(--primary);">
             <div>
                 <div style="display:flex;align-items:center;gap:1.15rem;margin-bottom:1rem;">
                     <?php if (!empty($profile['photo']) && $profile['photo'] !== 'no-image.png' && $profile['photo'] !== 'tkj-logo.png'): ?>
                         <img src="uploads/<?= htmlspecialchars($profile['photo']) ?>" alt="Foto Profil" style="width:68px;height:68px;border-radius:18px;object-fit:cover;box-shadow:var(--shadow-brand);" onerror="this.onerror=null;this.src='img/placeholder.svg';">
                     <?php else: ?>
-                        <div style="width:68px;height:68px;border-radius:18px;background:linear-gradient(135deg,var(--primary-light),var(--secondary));display:grid;place-items:center;color:#fff;font-size:1.75rem;box-shadow:var(--shadow-brand);flex-shrink:0;">
+                        <div class="logo-icon" style="width:68px;height:68px;border-radius:18px;font-size:1.75rem;flex-shrink:0;">
                             💻
                         </div>
                     <?php endif; ?>
@@ -291,8 +326,8 @@ include __DIR__ . '/includes/header.php';
         </section>
         <?php endif; ?>
 
-        <!-- Global Live Chat Spotlight -->
-        <section class="bento-card" style="border-top:4px solid #10b981;">
+        <!-- Global Live Chat Spotlight (Live Synced) -->
+        <section class="bento-card reveal" style="border-top:4px solid #10b981;">
             <div>
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;">
                     <h2 style="font-size:1.25rem;color:var(--dark);display:flex;align-items:center;gap:0.5rem;margin:0;">
@@ -303,11 +338,11 @@ include __DIR__ . '/includes/header.php';
                 </div>
                 <p class="admin-hint" style="margin-top:0.25rem;">Obrolan terbaru dari ruang diskusi publik komunitas:</p>
 
-                <div class="chat-preview-list">
+                <div class="chat-preview-list" id="homeChatPreviewList">
                     <?php if (!empty($recentChats)): ?>
                         <?php foreach ($recentChats as $rc): ?>
-                            <div class="chat-preview-item">
-                                <span class="user-avatar <?= avatarClass($rc['display_name']) ?>" style="width:30px;height:30px;font-size:0.72rem;">
+                            <div class="chat-preview-item" data-preview-id="<?= (int)$rc['id'] ?>">
+                                <span class="user-avatar <?= avatarClass($rc['display_name']) ?>" style="width:32px;height:32px;font-size:0.74rem;">
                                     <?= initials($rc['display_name']) ?>
                                 </span>
                                 <div style="flex:1;min-width:0;">
@@ -319,10 +354,15 @@ include __DIR__ . '/includes/header.php';
                                         <?= htmlspecialchars($rc['message']) ?>
                                     </div>
                                 </div>
+                                <?php if ($user && ((int)$rc['user_id'] === (int)$user['id'] || $user['role'] === 'admin')): ?>
+                                    <button type="button" class="preview-del-btn" data-home-del="<?= (int)$rc['id'] ?>" title="Hapus pesan ini">🗑</button>
+                                <?php endif; ?>
                             </div>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <div class="chat-preview-item">Belum ada pesan. Jadilah yang pertama menyapa!</div>
+                        <div class="chat-preview-item" style="justify-content:center;color:var(--text-light);">
+                            Belum ada pesan di ruang obrolan. Yuk sapa teman-teman!
+                        </div>
                     <?php endif; ?>
                 </div>
             </div>
@@ -334,7 +374,7 @@ include __DIR__ . '/includes/header.php';
     </div>
 
     <!-- Album Terbaru -->
-    <section style="margin-bottom:3.25rem;">
+    <section style="margin-bottom:3.25rem;" class="reveal">
         <div class="section-header page-anim">
             <div>
                 <h2>Galeri Album &amp; Portofolio Terbaru</h2>
@@ -388,7 +428,7 @@ include __DIR__ . '/includes/header.php';
     </section>
 
     <!-- Cerita Terbaru -->
-    <section style="margin-bottom:2rem;">
+    <section style="margin-bottom:2rem;" class="reveal">
         <div class="section-header page-anim">
             <div>
                 <h2>Cerita, Catatan &amp; Artikel Terbaru</h2>
@@ -439,5 +479,82 @@ include __DIR__ . '/includes/header.php';
         <?php endif; ?>
     </section>
 </main>
+
+<script>
+(function() {
+    const previewList = document.getElementById('homeChatPreviewList');
+    const statCount = document.getElementById('homeChatStatCount');
+    if (!previewList) return;
+
+    function escapeHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = s == null ? '' : String(s);
+        return d.innerHTML;
+    }
+
+    async function refreshHomeChat() {
+        try {
+            const res = await fetch('chat-api.php?action=fetch&limit=3&_t=' + Date.now(), { cache: 'no-store' });
+            const data = await res.json();
+            if (!data || !data.ok) return;
+
+            if (statCount && typeof data.total_messages === 'number') {
+                statCount.textContent = data.total_messages;
+            }
+
+            if (Array.isArray(data.messages) && data.messages.length > 0) {
+                previewList.innerHTML = data.messages.map(function(m) {
+                    const delBtn = m.can_delete
+                        ? `<button type="button" class="preview-del-btn" data-home-del="${m.id}" title="Hapus pesan ini">🗑</button>`
+                        : '';
+                    return `
+                        <div class="chat-preview-item" data-preview-id="${m.id}">
+                            <span class="user-avatar ${escapeHtml(m.avatar_class)}" style="width:32px;height:32px;font-size:0.74rem;">
+                                ${escapeHtml(m.initials)}
+                            </span>
+                            <div style="flex:1;min-width:0;">
+                                <div style="display:flex;justify-content:space-between;font-size:0.75rem;">
+                                    <strong style="color:var(--dark);">${escapeHtml(m.display_name)}</strong>
+                                    <span style="color:var(--muted);">${escapeHtml(m.time_ago)}</span>
+                                </div>
+                                <div style="color:var(--text-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                    ${escapeHtml(m.message)}
+                                </div>
+                            </div>
+                            ${delBtn}
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                previewList.innerHTML = `
+                    <div class="chat-preview-item" style="justify-content:center;color:var(--text-light);">
+                        Belum ada pesan di ruang obrolan. Yuk sapa teman-teman!
+                    </div>
+                `;
+            }
+        } catch (e) {}
+    }
+
+    previewList.addEventListener('click', async function(e) {
+        const btn = e.target.closest('[data-home-del]');
+        if (!btn) return;
+        const id = btn.getAttribute('data-home-del');
+        const row = btn.closest('.chat-preview-item');
+        if (row) row.style.opacity = '0.35';
+        const fd = new FormData();
+        fd.append('action', 'delete');
+        fd.append('id', id);
+        try {
+            await fetch('chat-api.php', { method: 'POST', body: fd });
+            await refreshHomeChat();
+            if (window.showToast) window.showToast('Pesan dihapus dari Global Live Chat.', 'success');
+        } catch (err) {}
+    });
+
+    window.addEventListener('pageshow', refreshHomeChat);
+    refreshHomeChat();
+    setInterval(refreshHomeChat, 3500);
+})();
+</script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>
