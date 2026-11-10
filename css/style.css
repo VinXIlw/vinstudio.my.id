@@ -1,4 +1,4 @@
-﻿/* ==========================================================================
+/* ==========================================================================
    TKJ CONNECT — Design System
    Portal profil kelas Teknik Komputer dan Jaringan
    --------------------------------------------------------------------------
@@ -2394,4 +2394,118 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 .bento-card:hover {
     border-color: rgba(99, 102, 241, 0.45);
     box-shadow: 0 18px 40px -10px rgba(79, 70, 229, 0.22);
+}
+
+/* ==========================================================================
+   11. SLIDING BUTTON GLIDER & SMOOTH DIRECTIONAL PAGE TRANSITIONS
+   ========================================================================== */
+
+@view-transition {
+    navigation: auto;
+}
+
+/* Glider kapsul yang bergeser ke sebelah pada Navbar & Tab */
+.main-nav ul {
+    position: relative;
+}
+.nav-glider {
+    position: absolute;
+    top: 0;
+    left: 0;
+    border-radius: var(--radius-pill);
+    background: linear-gradient(135deg, var(--primary-light), var(--secondary));
+    box-shadow: 0 6px 18px rgba(99, 102, 241, 0.48);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    transition:
+        transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+        width 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+        height 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.2s ease;
+}
+.main-nav ul.has-glider li > a {
+    position: relative;
+    z-index: 1;
+}
+.main-nav ul.has-glider li > a.active {
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #fff !important;
+}
+
+/* Glider untuk Tab Panel (.tabs) */
+.tabs {
+    position: relative;
+}
+.tab-glider {
+    position: absolute;
+    top: 0;
+    left: 0;
+    border-radius: var(--radius-pill);
+    background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
+    box-shadow: var(--shadow-brand);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    transition:
+        transform 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+        width 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+        height 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.2s ease;
+}
+.tabs.has-glider .tab-btn {
+    position: relative;
+    z-index: 1;
+}
+.tabs.has-glider .tab-btn.active {
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #fff !important;
+}
+
+/* Transisi Halaman Smooth & Geser Sebelah (Directional Slide) */
+@keyframes pageEnterFromRight {
+    0%   { opacity: 0; transform: translateX(32px) scale(0.99); }
+    100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes pageEnterFromLeft {
+    0%   { opacity: 0; transform: translateX(-32px) scale(0.99); }
+    100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes pageEnterSmooth {
+    0%   { opacity: 0; transform: translateY(16px) scale(0.992); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+main {
+    animation: pageEnterSmooth 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+    will-change: transform, opacity;
+}
+html[data-nav-dir="next"] main {
+    animation: pageEnterFromRight 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+html[data-nav-dir="prev"] main {
+    animation: pageEnterFromLeft 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+body.is-leaving {
+    animation: none !important;
+}
+body.is-leaving header {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+}
+body.is-leaving main {
+    transition: opacity 0.24s cubic-bezier(0.4, 0, 0.2, 1), transform 0.24s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    opacity: 0 !important;
+    transform: translateY(10px) scale(0.99) !important;
+    animation: none !important;
+}
+body.is-leaving[data-leave-dir="next"] main {
+    transform: translateX(-28px) scale(0.99) !important;
+}
+body.is-leaving[data-leave-dir="prev"] main {
+    transform: translateX(28px) scale(0.99) !important;
 }

@@ -67,7 +67,7 @@ include __DIR__ . '/includes/header.php';
     }
 
     .hero-banner {
-        background: linear-gradient(135deg, rgba(9, 13, 22, 0.82) 0%, rgba(30, 27, 75, 0.80) 52%, rgba(49, 46, 129, 0.78) 100%);
+        background: linear-gradient(135deg, rgba(9, 13, 22, 0.84) 0%, rgba(30, 27, 75, 0.82) 52%, rgba(49, 46, 129, 0.80) 100%);
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
         border-radius: var(--radius-xl);
@@ -76,7 +76,7 @@ include __DIR__ . '/includes/header.php';
         position: relative;
         overflow: hidden;
         box-shadow: var(--shadow-lg);
-        margin-bottom: 2.25rem;
+        margin-bottom: 1.75rem;
         border: 1px solid rgba(255, 255, 255, 0.14);
     }
     .hero-banner::before {
@@ -181,33 +181,39 @@ include __DIR__ . '/includes/header.php';
         display: grid;
         grid-template-columns: 1.15fr 1fr;
         gap: 1.5rem;
-        margin-bottom: 3rem;
+        margin-bottom: 1.75rem;
     }
     .bento-card {
         background: var(--white);
         border: 1px solid var(--border);
         border-radius: var(--radius-xl);
-        padding: 1.75rem 2rem;
-        box-shadow: var(--shadow-sm);
+        padding: 1.85rem 2.1rem;
+        box-shadow: var(--shadow);
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        backdrop-filter: blur(14px);
-        -webkit-backdrop-filter: blur(14px);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
         transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease, border-color 0.35s ease;
     }
-    html[data-theme="dark"] .bento-card,
-    html[data-theme="dark"] .album-card,
-    html[data-theme="dark"] .story-card {
-        background: rgba(17, 24, 39, 0.82);
+    .bento-section-box {
+        margin-bottom: 1.75rem;
     }
-    html:not([data-theme="dark"]) .bento-card,
-    html:not([data-theme="dark"]) .album-card,
-    html:not([data-theme="dark"]) .story-card {
-        background: rgba(255, 255, 255, 0.86);
+    html[data-theme="dark"] .bento-card {
+        background: rgba(17, 24, 39, 0.84);
+        border-color: rgba(255, 255, 255, 0.09);
+    }
+    html:not([data-theme="dark"]) .bento-card {
+        background: rgba(255, 255, 255, 0.88);
+    }
+    html[data-theme="dark"] .bento-section-box .album-card,
+    html[data-theme="dark"] .bento-section-box .story-card,
+    html[data-theme="dark"] .bento-section-box .empty-state {
+        background: rgba(15, 23, 42, 0.78);
+        border-color: rgba(255, 255, 255, 0.08);
     }
     .bento-card:hover {
-        transform: translateY(-5px);
+        transform: translateY(-4px);
         box-shadow: var(--shadow-md);
     }
     .chat-preview-list {
@@ -264,6 +270,9 @@ include __DIR__ . '/includes/header.php';
         }
         .hero-title {
             font-size: 2.15rem;
+        }
+        .bento-card {
+            padding: 1.4rem 1.25rem;
         }
     }
 </style>
@@ -405,14 +414,15 @@ include __DIR__ . '/includes/header.php';
         </section>
     </div>
 
-    <!-- Album Terbaru -->
-    <section style="margin-bottom:3.25rem;" class="reveal">
-        <div class="section-header page-anim">
+    <!-- Kotak Bento: Album Terbaru -->
+    <section class="bento-card bento-section-box reveal" style="border-top:4px solid #6366f1;">
+        <div class="section-header" style="margin-bottom:1.25rem;">
             <div>
+                <span class="badge" style="margin-left:0;margin-bottom:0.35rem;">PORTOFOLIO VISUAL</span>
                 <h2>Galeri Album &amp; Portofolio Terbaru</h2>
                 <p class="admin-hint">Dokumentasi visual dan karya pilihan yang baru saja dipublikasikan.</p>
             </div>
-            <div style="display:flex;gap:0.6rem;">
+            <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
                 <?php if ($user): ?>
                     <a href="album-add.php" class="btn btn-primary btn-sm">+ Unggah Foto</a>
                 <?php endif; ?>
@@ -421,7 +431,7 @@ include __DIR__ . '/includes/header.php';
         </div>
 
         <?php if (!empty($recentAlbums)): ?>
-        <div class="album-grid page-anim">
+        <div class="album-grid" style="margin-top:0.25rem;">
             <?php foreach ($recentAlbums as $album): ?>
             <article class="album-card">
                 <a href="album-detail.php?id=<?= $album['id'] ?>" class="card-preview-link">
@@ -451,22 +461,23 @@ include __DIR__ . '/includes/header.php';
             <?php endforeach; ?>
         </div>
         <?php else: ?>
-        <div class="empty-state page-anim">
+        <div class="empty-state" style="padding:2.5rem 1.5rem;">
             <span class="empty-icon">📸</span>
             <p>Belum ada album yang diunggah.</p>
-            <p style="margin-top:0.5rem;"><a href="album-add.php">Tambah album pertama</a></p>
+            <p style="margin-top:0.65rem;"><a href="album-add.php" class="btn btn-primary btn-sm">+ Tambah Album Pertama</a></p>
         </div>
         <?php endif; ?>
     </section>
 
-    <!-- Cerita Terbaru -->
-    <section style="margin-bottom:2rem;" class="reveal">
-        <div class="section-header page-anim">
+    <!-- Kotak Bento: Cerita Terbaru -->
+    <section class="bento-card bento-section-box reveal" style="border-top:4px solid #0ea5e9;margin-bottom:2rem;">
+        <div class="section-header" style="margin-bottom:1.25rem;">
             <div>
+                <span class="badge" style="margin-left:0;margin-bottom:0.35rem;background:linear-gradient(135deg,#0ea5e9,#0284c7);">ARTIKEL &amp; LITERASI</span>
                 <h2>Cerita, Catatan &amp; Artikel Terbaru</h2>
                 <p class="admin-hint">Ruang literasi, tutorial, dan berbagi pengalaman dari anggota komunitas.</p>
             </div>
-            <div style="display:flex;gap:0.6rem;">
+            <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
                 <?php if ($user): ?>
                     <a href="story-add.php" class="btn btn-primary btn-sm">+ Tulis Artikel</a>
                 <?php endif; ?>
@@ -475,7 +486,7 @@ include __DIR__ . '/includes/header.php';
         </div>
 
         <?php if (!empty($recentStories)): ?>
-        <div class="story-grid page-anim">
+        <div class="story-grid" style="margin-top:0.25rem;">
             <?php foreach ($recentStories as $story): ?>
             <article class="story-card">
                 <a href="story-detail.php?id=<?= $story['id'] ?>" class="card-preview-link">
@@ -503,10 +514,10 @@ include __DIR__ . '/includes/header.php';
             <?php endforeach; ?>
         </div>
         <?php else: ?>
-        <div class="empty-state page-anim">
+        <div class="empty-state" style="padding:2.5rem 1.5rem;">
             <span class="empty-icon">📖</span>
             <p>Belum ada cerita yang dibagikan.</p>
-            <p style="margin-top:0.5rem;"><a href="story-add.php">Tulis cerita pertama</a></p>
+            <p style="margin-top:0.65rem;"><a href="story-add.php" class="btn btn-primary btn-sm">+ Tulis Cerita Pertama</a></p>
         </div>
         <?php endif; ?>
     </section>
@@ -526,15 +537,14 @@ include __DIR__ . '/includes/header.php';
     let height = window.innerHeight;
     let dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-    // Palet warna ikonik Google Antigravity
     const palette = [
-        '#4285F4', // Google Blue
-        '#6366F1', // Indigo
-        '#38BDF8', // Sky Cyan
-        '#A855F7', // Purple
-        '#EC4899', // Coral Pink
-        '#10B981', // Emerald
-        '#F59E0B'  // Amber
+        '#4285F4',
+        '#6366F1',
+        '#38BDF8',
+        '#A855F7',
+        '#EC4899',
+        '#10B981',
+        '#F59E0B'
     ];
 
     const pointer = {
@@ -556,7 +566,6 @@ include __DIR__ . '/includes/header.php';
         canvas.height = height * dpr;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-        // Buat sebaran partikel kapsul di seluruh layar
         const spacing = width < 768 ? 54 : 44;
         const cols = Math.ceil(width / spacing) + 1;
         const rows = Math.ceil(height / spacing) + 1;
@@ -616,13 +625,11 @@ include __DIR__ . '/includes/header.php';
 
         ctx.clearRect(0, 0, width, height);
 
-        // Jika kursor belum digerakkan, gerakkan titik fokus secara lembut membentuk angka 8
         if (!pointer.active) {
             pointer.targetX = width * 0.5 + Math.cos(t * 0.55) * (width * 0.22);
             pointer.targetY = height * 0.36 + Math.sin(t * 0.9) * (height * 0.14);
         }
 
-        // Interpolasi halus posisi kursor (trailing spring)
         pointer.x += (pointer.targetX - pointer.x) * 0.12;
         pointer.y += (pointer.targetY - pointer.y) * 0.12;
 
@@ -632,7 +639,6 @@ include __DIR__ . '/includes/header.php';
             pointer.pulse = 0;
         }
 
-        // 1. Gambar Ambient Spotlight Glow yang mengikuti kursor
         const glowRadius = width < 768 ? 240 : 380;
         const grad = ctx.createRadialGradient(pointer.x, pointer.y, 10, pointer.x, pointer.y, glowRadius);
         if (isDark) {
@@ -647,7 +653,6 @@ include __DIR__ . '/includes/header.php';
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, width, height);
 
-        // 2. Update & gambar setiap partikel kapsul Antigravity
         const maxInfluence = width < 768 ? 210 : 310;
         const baseRingRadius = (width < 768 ? 95 : 145) + pointer.pulse * 75;
 
@@ -656,7 +661,6 @@ include __DIR__ . '/includes/header.php';
         for (let i = 0; i < particles.length; i++) {
             const p = particles[i];
 
-            // Gerakan mengambang alami (anti-gravity drift)
             const floatX = p.homeX + Math.cos(t * p.speed + p.phase) * 9;
             const floatY = p.homeY + Math.sin(t * p.speed + p.phase) * 9;
 
@@ -673,12 +677,10 @@ include __DIR__ . '/includes/header.php';
             if (dist < maxInfluence) {
                 energy = Math.pow(1 - dist / maxInfluence, 1.35);
 
-                // Bentuk cincin bergelombang organik (medusa/halo) di sekeliling kursor
                 const waveOffset = Math.sin(angleToCursor * 4 + t * 2.6) * 18
                                  + Math.cos(angleToCursor * 3 - t * 1.9) * 12;
                 const ringR = baseRingRadius + waveOffset;
 
-                // Tarik partikel menuju keliling cincin halo + sedikit efek pusaran (swirl)
                 const swirlAngle = angleToCursor + 0.18 * energy;
                 const ringX = pointer.x + Math.cos(swirlAngle) * ringR;
                 const ringY = pointer.y + Math.sin(swirlAngle) * ringR;
@@ -686,23 +688,19 @@ include __DIR__ . '/includes/header.php';
                 targetX = floatX * (1 - energy * 0.78) + ringX * (energy * 0.78);
                 targetY = floatY * (1 - energy * 0.78) + ringY * (energy * 0.78);
 
-                // Arahkan rotasi kapsul mengikuti garis medan magnet kursor
                 targetAngle = angleToCursor + Math.sin(t * 2 + p.phase) * 0.25;
             }
 
-            // Fisika pegas halus (spring + damping)
             p.vx = (p.vx + (targetX - p.x) * 0.085) * 0.80;
             p.vy = (p.vy + (targetY - p.y) * 0.085) * 0.80;
             p.x += p.vx;
             p.y += p.vy;
 
-            // Interpolasi sudut rotasi kapsul
             let diffAngle = targetAngle - p.angle;
             while (diffAngle > Math.PI) diffAngle -= Math.PI * 2;
             while (diffAngle < -Math.PI) diffAngle += Math.PI * 2;
             p.angle += diffAngle * 0.14;
 
-            // Panjang kapsul memanjang saat terpengaruh medan kursor
             const halfLen = (p.baseLen + energy * 8.5) * 0.5;
             const cosA = Math.cos(p.angle) * halfLen;
             const sinA = Math.sin(p.angle) * halfLen;

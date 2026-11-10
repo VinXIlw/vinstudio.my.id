@@ -1,12 +1,12 @@
 /*
   XI TKJ 1 Digital Hub — Main Interactive JavaScript
   Fitur:
+    - Sliding Button Glider (efek tombol langsung geser ke sebelah pada Navbar & Tab)
+    - Smooth Directional Page Transition (transisi geser halaman mulus)
     - Dark / Light Mode Toggle dengan persistensi localStorage
-    - Progress bar navigasi & transisi halaman halus
     - Floating Mini Global Live Chat Drawer (dengan fitur Hapus & Live Sync)
     - Lightbox Zoom Gambar Resolusi Tinggi
     - Copy Link Share & Toast Notifikasi
-    - Tab panel, Modal, Ripple, dan Form UX
 */
 (function () {
     'use strict';
@@ -14,10 +14,21 @@
     const $  = (sel, ctx) => (ctx || document).querySelector(sel);
     const $$ = (sel, ctx) => Array.from((ctx || document).querySelectorAll(sel));
 
+    // Terapkan arah animasi masuk halaman dari navigasi sebelumnya
+    try {
+        const savedDir = sessionStorage.getItem('xitkj1_nav_dir');
+        if (savedDir === 'next' || savedDir === 'prev') {
+            document.documentElement.setAttribute('data-nav-dir', savedDir);
+            sessionStorage.removeItem('xitkj1_nav_dir');
+        }
+    } catch (e) {}
+
     document.addEventListener('DOMContentLoaded', function () {
         initThemeToggle();
         initProgressBar();
         initMobileMenu();
+        initActiveNav();
+        initNavGlider();
         initPageTransition();
         initReveal();
         initTabs();
@@ -26,7 +37,6 @@
         initFormUX();
         initTableTools();
         initToasts();
-        initActiveNav();
         initCounterAnimation();
         initSmoothScroll();
         initLightbox();
@@ -89,9 +99,116 @@
     }
 
     /* ---------------------------------------------------------
-       Transisi perpindahan halaman
+       Tandai nav aktif
+    --------------------------------------------------------- */
+    function initActiveNav() {
+        const path = window.location.pathname;
+        $$('.main-nav a').forEach(function (link) {
+            const href = link.getAttribute('href');
+            if (href && (path.endsWith('/' + href) || path === href)) {
+                link.classList.add('active');
+            }
+        });
+    }
+
+    /* ---------------------------------------------------------
+       Sliding Button Glider di Navbar (Geser ke Sebelah)
+    --------------------------------------------------------- */
+    let moveNavbarGliderTo = null;
+    function initNavGlider() {
+        const navUl = $('.main-nav ul');
+        if (!navUl) return;
+
+        const links = $$('li > a:not(.btn-logout)', navUl);
+        if (!links.length) return;
+
+        const glider = document.createElement('span');
+        glider.className = 'nav-glider';
+        navUl.appendChild(glider);
+        navUl.classList.add('has-glider');
+
+        function getMetrics(el) {
+            const ulRect = navUl.getBoundingClientRect();
+            const elRect = el.getBoundingClientRect();
+            return {
+                x: elRect.left - ulRect.left,
+                y: elRect.top - ulRect.top,
+                w: elRect.width,
+                h: elRect.height
+            };
+        }
+
+        function applyGlider(m, animate) {
+            if (!animate) {
+                glider.style.transition = 'none';
+            } else {
+                glider.style.transition = '';
+            }
+            glider.style.width = m.w + 'px';
+            glider.style.height = m.h + 'px';
+            glider.style.transform = `translate3d(${m.x}px, ${m.y}px, 0)`;
+            glider.style.opacity = '1';
+            if (!animate) {
+                // Paksa reflow agar transisi berikutnya berjalan mulus
+                void glider.offsetWidth;
+                glider.style.transition = '';
+            }
+        }
+
+        const activeLink = links.find(l => l.classList.contains('active'));
+        if (activeLink && window.innerWidth > 768) {
+            const targetMetrics = getMetrics(activeLink);
+            let prevMetrics = null;
+            try {
+                const raw = sessionStorage.getItem('xitkj1_nav_rect');
+                if (raw) prevMetrics = JSON.parse(raw);
+            } catch (e) {}
+
+            if (prevMetrics && typeof prevMetrics.x === 'number') {
+                // Mulai dari posisi tombol sebelumnya lalu langsung geser ke tombol aktif!
+                applyGlider(prevMetrics, false);
+                requestAnimationFrame(function () {
+                    requestAnimationFrame(function () {
+                        applyGlider(targetMetrics, true);
+                    });
+                });
+            } else {
+                applyGlider(targetMetrics, false);
+            }
+
+            try {
+                sessionStorage.setItem('xitkj1_nav_rect', JSON.stringify(targetMetrics));
+            } catch (e) {}
+        }
+
+        moveNavbarGliderTo = function (targetLink) {
+            if (!targetLink || window.innerWidth <= 768) return;
+            const currentActive = links.find(l => l.classList.contains('active'));
+            if (currentActive) {
+                try {
+                    sessionStorage.setItem('xitkj1_nav_rect', JSON.stringify(getMetrics(currentActive)));
+                } catch (e) {}
+            }
+            links.forEach(l => l.classList.toggle('active', l === targetLink));
+            applyGlider(getMetrics(targetLink), true);
+        };
+
+        window.addEventListener('resize', function () {
+            const cur = links.find(l => l.classList.contains('active'));
+            if (cur && window.innerWidth > 768) {
+                applyGlider(getMetrics(cur), false);
+            } else {
+                glider.style.opacity = '0';
+            }
+        });
+    }
+
+    /* ---------------------------------------------------------
+       Transisi perpindahan halaman (Smooth & Directional Slide)
     --------------------------------------------------------- */
     function initPageTransition() {
+        const navLinks = $$('.main-nav ul li > a');
+
         document.addEventListener('click', function (e) {
             const link = e.target.closest('a');
             if (!link) return;
@@ -104,20 +221,41 @@
 
             const url = new URL(link.href, window.location.href);
             if (url.origin !== window.location.origin) return;
+            if (url.href === window.location.href) return;
 
             e.preventDefault();
+
+            // Deteksi apakah klik berasal dari tombol navbar untuk efek geser ke sebelah
+            const currentActiveNav = navLinks.find(l => l.classList.contains('active'));
+            const clickedNavIndex = navLinks.indexOf(link);
+            const currentNavIndex = currentActiveNav ? navLinks.indexOf(currentActiveNav) : -1;
+
+            if (clickedNavIndex !== -1) {
+                if (moveNavbarGliderTo) {
+                    moveNavbarGliderTo(link);
+                }
+                if (currentNavIndex !== -1 && clickedNavIndex !== currentNavIndex) {
+                    const dir = clickedNavIndex > currentNavIndex ? 'next' : 'prev';
+                    document.body.setAttribute('data-leave-dir', dir);
+                    try {
+                        sessionStorage.setItem('xitkj1_nav_dir', dir);
+                    } catch (err) {}
+                }
+            }
+
             const bar = $('.page-progress');
             if (bar) {
                 bar.classList.add('active');
-                setTimeout(function () { bar.classList.add('done'); }, 240);
+                setTimeout(function () { bar.classList.add('done'); }, 220);
             }
             document.body.classList.add('is-leaving');
-            setTimeout(function () { window.location.href = url.href; }, 170);
+            setTimeout(function () { window.location.href = url.href; }, 210);
         });
 
         window.addEventListener('pageshow', function (e) {
             if (e.persisted) {
                 document.body.classList.remove('is-leaving');
+                document.body.removeAttribute('data-leave-dir');
                 const bar = $('.page-progress');
                 if (bar) bar.classList.remove('active', 'done');
             }
@@ -140,34 +278,66 @@
                 if (entry.isIntersecting) {
                     setTimeout(function () {
                         entry.target.classList.add('is-visible');
-                    }, i * 65);
+                    }, i * 55);
                     io.unobserve(entry.target);
                 }
             });
-        }, { threshold: 0.08, rootMargin: '0px 0px -20px 0px' });
+        }, { threshold: 0.06, rootMargin: '0px 0px -15px 0px' });
 
         items.forEach(el => io.observe(el));
     }
 
     /* ---------------------------------------------------------
-       Tab panel (tanpa reload)
+       Tab panel (tanpa reload + Sliding Tab Glider)
     --------------------------------------------------------- */
     function initTabs() {
         const tabGroups = $$('[data-tabs]');
         tabGroups.forEach(function (group) {
+            const tabsNav = $('.tabs', group) || group;
             const buttons = $$('.tab-btn', group);
             const panels = $$('.tab-panel', group);
             if (!buttons.length) return;
 
-            function activate(name, push) {
+            let tabGlider = null;
+            if (tabsNav && tabsNav.classList.contains('tabs')) {
+                tabGlider = document.createElement('span');
+                tabGlider.className = 'tab-glider';
+                tabsNav.appendChild(tabGlider);
+                tabsNav.classList.add('has-glider');
+            }
+
+            function updateTabGlider(activeBtn, animate) {
+                if (!tabGlider || !activeBtn) return;
+                const navRect = tabsNav.getBoundingClientRect();
+                const btnRect = activeBtn.getBoundingClientRect();
+                const x = btnRect.left - navRect.left + tabsNav.scrollLeft;
+                const y = btnRect.top - navRect.top;
+                if (!animate) tabGlider.style.transition = 'none';
+                else tabGlider.style.transition = '';
+                tabGlider.style.width = btnRect.width + 'px';
+                tabGlider.style.height = btnRect.height + 'px';
+                tabGlider.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+                tabGlider.style.opacity = '1';
+                if (!animate) {
+                    void tabGlider.offsetWidth;
+                    tabGlider.style.transition = '';
+                }
+            }
+
+            function activate(name, push, animate) {
+                let activeBtn = null;
                 buttons.forEach(function (b) {
                     const on = b.dataset.tab === name;
                     b.classList.toggle('active', on);
                     b.setAttribute('aria-selected', on ? 'true' : 'false');
+                    if (on) activeBtn = b;
                 });
                 panels.forEach(function (p) {
                     p.classList.toggle('active', p.dataset.panel === name);
                 });
+                if (activeBtn) {
+                    updateTabGlider(activeBtn, animate);
+                }
                 if (push && window.history && window.history.replaceState) {
                     const url = new URL(window.location.href);
                     url.searchParams.set('tab', name);
@@ -177,12 +347,7 @@
 
             buttons.forEach(function (btn) {
                 btn.addEventListener('click', function () {
-                    activate(btn.dataset.tab, true);
-                    const panel = group.parentElement;
-                    if (panel) {
-                        const top = panel.getBoundingClientRect().top + window.scrollY - 90;
-                        window.scrollTo({ top: top, behavior: 'smooth' });
-                    }
+                    activate(btn.dataset.tab, true, true);
                 });
             });
 
@@ -191,7 +356,12 @@
             const initial = buttons.some(b => b.dataset.tab === wanted)
                 ? wanted
                 : (group.dataset.defaultTab || (buttons[0] && buttons[0].dataset.tab));
-            if (initial) activate(initial, false);
+            if (initial) activate(initial, false, false);
+
+            window.addEventListener('resize', function () {
+                const cur = buttons.find(b => b.classList.contains('active'));
+                if (cur) updateTabGlider(cur, false);
+            });
         });
     }
 
@@ -409,19 +579,6 @@
 
         $$('.alert').forEach(function (alert) {
             showToast(alert.textContent.trim(), alert.classList.contains('alert-error') ? 'error' : 'success');
-        });
-    }
-
-    /* ---------------------------------------------------------
-       Tandai nav aktif
-    --------------------------------------------------------- */
-    function initActiveNav() {
-        const path = window.location.pathname;
-        $$('.main-nav a').forEach(function (link) {
-            const href = link.getAttribute('href');
-            if (href && (path.endsWith('/' + href) || path === href)) {
-                link.classList.add('active');
-            }
         });
     }
 

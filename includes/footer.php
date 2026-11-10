@@ -102,6 +102,6 @@ $currentUserFooter = currentUser();
         </div>
     </footer>
 
-    <script src="js/main.js?v=3.0"></script>
+    <script src="js/main.js?v=4.0"></script>
 </body>
 </html>
