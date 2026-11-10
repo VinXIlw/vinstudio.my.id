@@ -1,13 +1,12 @@
 /*
-  TKJ Profile Web App — JavaScript
-  Interaktivitas untuk portal kelas TKJ:
-    - Transisi perpindahan halaman (progress bar + fade out)
-    - Tab panel (tanpa reload halaman)
-    - Modal, toast, ripple pada tombol
-    - Tampilkan/sembunyikan password + meter kekuatan
-    - Penghitung karakter pada textarea
-    - Pencarian & filter tabel admin (live)
-    - Muncul bertahap saat scroll (reveal)
+  VinStudio Digital Hub — Main Interactive JavaScript
+  Fitur:
+    - Dark / Light Mode Toggle dengan persistensi localStorage
+    - Progress bar navigasi & transisi halaman halus
+    - Floating Mini Global Live Chat Drawer
+    - Lightbox Zoom Gambar Resolusi Tinggi
+    - Copy Link Share & Toast Notifikasi
+    - Tab panel, Modal, Ripple, dan Form UX
 */
 (function () {
     'use strict';
@@ -16,6 +15,7 @@
     const $$ = (sel, ctx) => Array.from((ctx || document).querySelectorAll(sel));
 
     document.addEventListener('DOMContentLoaded', function () {
+        initThemeToggle();
         initProgressBar();
         initMobileMenu();
         initPageTransition();
@@ -29,7 +29,28 @@
         initActiveNav();
         initCounterAnimation();
         initSmoothScroll();
+        initLightbox();
+        initShareButtons();
+        initFloatingChat();
     });
+
+    /* ---------------------------------------------------------
+       Dark / Light Mode Toggle
+    --------------------------------------------------------- */
+    function initThemeToggle() {
+        const btn = $('#themeToggle');
+        if (!btn) return;
+
+        btn.addEventListener('click', function () {
+            const root = document.documentElement;
+            const current = root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+            const next = current === 'dark' ? 'light' : 'dark';
+            root.setAttribute('data-theme', next);
+            try {
+                localStorage.setItem('vinstudio_theme', next);
+            } catch (e) {}
+        });
+    }
 
     /* ---------------------------------------------------------
        Progress bar navigasi
@@ -76,7 +97,7 @@
             if (!link) return;
 
             const href = link.getAttribute('href');
-            if (!href || href.startsWith('#') || href.startsWith('mailto:')) return;
+            if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('javascript:')) return;
             if (link.target === '_blank' || link.hasAttribute('download')) return;
             if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
             if (link.hasAttribute('data-no-transition')) return;
@@ -88,10 +109,10 @@
             const bar = $('.page-progress');
             if (bar) {
                 bar.classList.add('active');
-                setTimeout(function () { bar.classList.add('done'); }, 260);
+                setTimeout(function () { bar.classList.add('done'); }, 240);
             }
             document.body.classList.add('is-leaving');
-            setTimeout(function () { window.location.href = url.href; }, 190);
+            setTimeout(function () { window.location.href = url.href; }, 170);
         });
 
         window.addEventListener('pageshow', function (e) {
@@ -119,7 +140,7 @@
                 if (entry.isIntersecting) {
                     setTimeout(function () {
                         entry.target.classList.add('is-visible');
-                    }, i * 70);
+                    }, i * 65);
                     io.unobserve(entry.target);
                 }
             });
@@ -165,7 +186,6 @@
                 });
             });
 
-            // Tab awal dari query string (?tab=pengguna) atau default
             const params = new URLSearchParams(window.location.search);
             const wanted = params.get('tab');
             const initial = buttons.some(b => b.dataset.tab === wanted)
@@ -238,12 +258,10 @@
         });
     }
 
-
     /* ---------------------------------------------------------
        UX form: password, meter, penghitung karakter, loading
     --------------------------------------------------------- */
     function initFormUX() {
-        // Tampilkan / sembunyikan password
         $$('.pw-toggle').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 const input = document.getElementById(btn.dataset.target);
@@ -255,7 +273,6 @@
             });
         });
 
-        // Meter kekuatan password
         $$('[data-pw-meter]').forEach(function (input) {
             const meter = $('#' + input.dataset.pwMeter);
             const hint = input.dataset.pwHint ? $('#' + input.dataset.pwHint) : null;
@@ -277,7 +294,6 @@
             });
         });
 
-        // Penghitung karakter
         $$('[data-counter]').forEach(function (input) {
             const out = $('#' + input.dataset.counter);
             if (!out) return;
@@ -290,8 +306,8 @@
             update();
         });
 
-        // Tombol jadi loading saat form dikirim
         $$('form').forEach(function (form) {
+            if (form.hasAttribute('data-no-loading')) return;
             form.addEventListener('submit', function (e) {
                 const required = form.querySelectorAll('[required]');
                 let valid = true;
@@ -330,7 +346,7 @@
     }
 
     /* ---------------------------------------------------------
-       Pencarian & filter tabel admin (live, tanpa reload)
+       Pencarian & filter tabel admin
     --------------------------------------------------------- */
     function initTableTools() {
         const search = $('[data-table-search]');
@@ -362,24 +378,37 @@
         applyFilter();
     }
 
-
     /* ---------------------------------------------------------
-       Toast dari elemen .alert
+       Toast dari elemen .alert & helper global showToast
     --------------------------------------------------------- */
+    let toastWrap = null;
+    function showToast(text, type) {
+        if (!toastWrap) {
+            toastWrap = $('.toast-wrap');
+            if (!toastWrap) {
+                toastWrap = document.createElement('div');
+                toastWrap.className = 'toast-wrap';
+                document.body.appendChild(toastWrap);
+            }
+        }
+        const toast = document.createElement('div');
+        toast.className = 'toast ' + (type === 'error' ? 'error' : 'success');
+        toast.textContent = text;
+        toastWrap.appendChild(toast);
+        setTimeout(function () {
+            toast.classList.add('hide');
+            setTimeout(function () { toast.remove(); }, 320);
+        }, 4200);
+    }
+    window.showToast = showToast;
+
     function initToasts() {
-        const wrap = document.createElement('div');
-        wrap.className = 'toast-wrap';
-        document.body.appendChild(wrap);
+        toastWrap = document.createElement('div');
+        toastWrap.className = 'toast-wrap';
+        document.body.appendChild(toastWrap);
 
         $$('.alert').forEach(function (alert) {
-            const toast = document.createElement('div');
-            toast.className = 'toast ' + (alert.classList.contains('alert-error') ? 'error' : 'success');
-            toast.textContent = alert.textContent.trim();
-            wrap.appendChild(toast);
-            setTimeout(function () {
-                toast.classList.add('hide');
-                setTimeout(function () { toast.remove(); }, 320);
-            }, 5200);
+            showToast(alert.textContent.trim(), alert.classList.contains('alert-error') ? 'error' : 'success');
         });
     }
 
@@ -390,7 +419,7 @@
         const path = window.location.pathname;
         $$('.main-nav a').forEach(function (link) {
             const href = link.getAttribute('href');
-            if (href === path || (href !== '/' && path.indexOf(href) === 0)) {
+            if (href && (path.endsWith('/' + href) || path === href)) {
                 link.classList.add('active');
             }
         });
@@ -431,5 +460,162 @@
             });
         });
     }
-})();
 
+    /* ---------------------------------------------------------
+       Lightbox Zoom Gambar Resolusi Tinggi
+    --------------------------------------------------------- */
+    function initLightbox() {
+        const backdrop = $('#imageLightbox');
+        const imgEl = $('#lightboxImage');
+        const capEl = $('#lightboxCaption');
+        const closeBtn = $('#lightboxCloseBtn');
+        if (!backdrop || !imgEl) return;
+
+        function openLightbox(src, alt) {
+            imgEl.src = src;
+            if (capEl) capEl.textContent = alt || '';
+            backdrop.classList.add('open');
+            backdrop.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLightbox() {
+            backdrop.classList.remove('open');
+            backdrop.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+        }
+
+        $$('.detail-hero img, [data-lightbox]').forEach(function (img) {
+            img.style.cursor = 'zoom-in';
+            img.title = 'Klik untuk memperbesar gambar';
+            img.addEventListener('click', function () {
+                openLightbox(img.src, img.alt);
+            });
+        });
+
+        if (closeBtn) closeBtn.addEventListener('click', closeLightbox);
+        backdrop.addEventListener('click', function (e) {
+            if (e.target === backdrop) closeLightbox();
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && backdrop.classList.contains('open')) {
+                closeLightbox();
+            }
+        });
+    }
+
+    /* ---------------------------------------------------------
+       Tombol Bagikan / Copy Link
+    --------------------------------------------------------- */
+    function initShareButtons() {
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('[data-share-url]');
+            if (!btn) return;
+            e.preventDefault();
+            const url = btn.getAttribute('data-share-url') || window.location.href;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(function () {
+                    showToast('Tautan berhasil disalin ke papan klip!', 'success');
+                });
+            } else {
+                showToast('Tautan: ' + url, 'success');
+            }
+        });
+    }
+
+    /* ---------------------------------------------------------
+       Floating Mini Global Live Chat Drawer
+    --------------------------------------------------------- */
+    function initFloatingChat() {
+        const fab = $('#floatingChatFab');
+        const panel = $('#floatingChatPanel');
+        const closeBtn = $('#floatingChatClose');
+        const body = $('#floatingChatBody');
+        const form = $('#floatingChatForm');
+        const input = $('#floatingChatInput');
+        const onlineText = $('#floatingOnlineText');
+        if (!fab || !panel || !body) return;
+
+        let pollTimer = null;
+        let lastMiniId = 0;
+
+        function escapeHtml(s) {
+            const d = document.createElement('div');
+            d.textContent = s == null ? '' : String(s);
+            return d.innerHTML;
+        }
+
+        async function loadMiniChat(scrollBottom) {
+            try {
+                const res = await fetch('chat-api.php?action=fetch&limit=25');
+                const data = await res.json();
+                if (!data || !data.ok) return;
+
+                if (onlineText && data.online_count) {
+                    onlineText.textContent = data.online_count + ' anggota online';
+                }
+
+                if (Array.isArray(data.messages)) {
+                    const newest = data.messages.length ? data.messages[data.messages.length - 1].id : 0;
+                    if (newest !== lastMiniId || scrollBottom) {
+                        lastMiniId = newest;
+                        body.innerHTML = data.messages.map(function (m) {
+                            return `
+                                <div class="mini-msg-item ${m.is_mine ? 'is-mine' : ''}">
+                                    <div class="mini-msg-top">
+                                        <strong style="color:var(--dark);">${escapeHtml(m.display_name)}</strong>
+                                        <span style="color:var(--muted);">${escapeHtml(m.time_clock)}</span>
+                                    </div>
+                                    <div style="color:var(--text-soft);word-break:break-word;">${escapeHtml(m.message)}</div>
+                                </div>
+                            `;
+                        }).join('');
+                        body.scrollTop = body.scrollHeight;
+                    }
+                }
+            } catch (e) {}
+        }
+
+        fab.addEventListener('click', function () {
+            const isOpen = panel.classList.toggle('open');
+            panel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+            if (isOpen) {
+                loadMiniChat(true);
+                if (input) setTimeout(() => input.focus(), 100);
+                if (!pollTimer) {
+                    pollTimer = setInterval(() => loadMiniChat(false), 3500);
+                }
+            } else if (pollTimer) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            }
+        });
+
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function () {
+                panel.classList.remove('open');
+                panel.setAttribute('aria-hidden', 'true');
+                if (pollTimer) {
+                    clearInterval(pollTimer);
+                    pollTimer = null;
+                }
+            });
+        }
+
+        if (form && input) {
+            form.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                const msg = input.value.trim();
+                if (!msg) return;
+                input.value = '';
+                const fd = new FormData();
+                fd.append('action', 'send');
+                fd.append('message', msg);
+                try {
+                    await fetch('chat-api.php', { method: 'POST', body: fd });
+                    await loadMiniChat(true);
+                } catch (e) {}
+            });
+        }
+    }
+})();

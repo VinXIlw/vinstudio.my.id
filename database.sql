@@ -77,6 +77,15 @@ CREATE TABLE IF NOT EXISTS `login_logs` (
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS `chat_messages` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `user_id` INT NOT NULL,
+    `message` TEXT NOT NULL,
+    `reply_to_id` INT NULL,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Data Profil Default
 INSERT INTO `profiles` (`id`, `class_name`, `description`, `teacher_name`, `school_year`, `photo`, `vision`, `mission`)
 VALUES (1, 'Kelas XI TKJ 1', 'Kelas Teknik Komputer dan Jaringan', 'Bu Herlina, S.Pd.', '2026/2027', 'tkj-logo.png', 'Menjadi kelas unggulan dalam bidang TI dan jaringan', 'Menyelenggara pembelajaran inovatif dan praktis')

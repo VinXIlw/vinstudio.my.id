@@ -4,13 +4,16 @@ require_once __DIR__ . '/config.php';
 $pageTitle = 'Galeri Album';
 $currentPage = 'albums';
 
+$sort = $_GET['sort'] ?? 'latest';
+$orderSql = ($sort === 'popular') ? 'like_count DESC, a.created_at DESC' : 'a.created_at DESC';
+
 $albums = $pdo->query("
     SELECT a.*, u.display_name AS username,
            (SELECT COUNT(*) FROM likes WHERE target_type = 'album' AND target_id = a.id) AS like_count,
            (SELECT COUNT(*) FROM comments WHERE target_type = 'album' AND target_id = a.id) AS comment_count
     FROM albums a
     JOIN users u ON a.user_id = u.id
-    ORDER BY a.created_at DESC
+    ORDER BY {$orderSql}
 ")->fetchAll();
 
 include __DIR__ . '/includes/header.php';
@@ -20,7 +23,9 @@ include __DIR__ . '/includes/header.php';
     .album-link {
         text-decoration: none;
         color: inherit;
-        display: block;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
     }
     .album-card {
         cursor: pointer;
@@ -32,14 +37,14 @@ include __DIR__ . '/includes/header.php';
     .album-img-wrap {
         position: relative;
         overflow: hidden;
-        height: 200px;
+        height: 205px;
         background: #0f172a;
     }
     .album-img-wrap img {
         width: 100%;
         height: 100%;
         object-fit: cover;
-        transition: transform 0.4s ease;
+        transition: transform 0.45s ease;
     }
     .album-card:hover .album-img-wrap img {
         transform: scale(1.06);
@@ -47,8 +52,10 @@ include __DIR__ . '/includes/header.php';
     .album-stats-bar {
         display: flex;
         align-items: center;
-        gap: 0.75rem;
-        margin-top: 0.75rem;
+        gap: 0.65rem;
+        margin-top: 0.85rem;
+        padding-top: 0.65rem;
+        border-top: 1px solid var(--border);
         font-size: 0.8rem;
         color: var(--text-light);
     }
@@ -69,21 +76,25 @@ include __DIR__ . '/includes/header.php';
         <div class="container">
             <div class="page-header page-anim">
                 <div>
-                    <h1>&#128248; Galeri Foto &amp; Portofolio</h1>
-                    <p class="page-subtitle">Dokumentasi momen, kegiatan, dan portofolio karya.</p>
+                    <h1>Galeri Foto &amp; Portofolio</h1>
+                    <p class="page-subtitle">Dokumentasi momen, kegiatan, dan karya visual terbaik komunitas.</p>
                 </div>
                 <?php if ($user): ?>
-                    <a href="album-add.php" class="btn btn-primary">&#10133; Tambah Album Baru</a>
+                    <a href="album-add.php" class="btn btn-primary">+ Unggah Album Baru</a>
                 <?php else: ?>
-                    <a href="login.php?r=album-add.php" class="btn btn-outline">Masuk untuk Menambah Album</a>
+                    <a href="login.php?r=album-add.php" class="btn btn-outline">Masuk untuk Mengunggah</a>
                 <?php endif; ?>
             </div>
 
-            <!-- Toolbar Pencarian -->
+            <!-- Toolbar Pencarian & Urutan -->
             <div class="toolbar page-anim" style="margin-bottom:1.75rem;">
                 <div class="search-box">
-                    <span class="search-icon">&#128269;</span>
-                    <input type="search" id="albumSearch" placeholder="Cari judul album atau pengunggah..." aria-label="Cari album">
+                    <span class="search-icon">🔍</span>
+                    <input type="search" id="albumSearch" placeholder="Cari judul karya atau nama pengunggah..." aria-label="Cari album">
+                </div>
+                <div style="display:flex;gap:0.4rem;">
+                    <a href="albums.php?sort=latest" class="btn btn-sm <?= $sort !== 'popular' ? 'btn-primary' : 'btn-outline' ?>">Terbaru</a>
+                    <a href="albums.php?sort=popular" class="btn btn-sm <?= $sort === 'popular' ? 'btn-primary' : 'btn-outline' ?>">Terpopuler</a>
                 </div>
                 <span class="admin-hint" id="albumCountDisplay"><?= count($albums) ?> album tersedia</span>
             </div>
@@ -98,8 +109,8 @@ include __DIR__ . '/includes/header.php';
                                  alt="<?= htmlspecialchars($album['title']) ?>" onerror="this.onerror=null;this.src='img/placeholder.svg';">
                         </div>
                         <div class="album-content" style="flex:1;display:flex;flex-direction:column;">
-                            <h3 style="font-size:1.05rem;margin-bottom:0.35rem;color:var(--dark);"><?= htmlspecialchars($album['title']) ?></h3>
-                            <p class="album-meta" style="font-size:0.8rem;color:var(--text-light);margin-bottom:0.5rem;">
+                            <h3 style="font-size:1.06rem;margin-bottom:0.35rem;color:var(--dark);"><?= htmlspecialchars($album['title']) ?></h3>
+                            <p class="album-meta" style="font-size:0.78rem;color:var(--text-light);margin-bottom:0.55rem;">
                                 Oleh <strong><?= htmlspecialchars($album['username']) ?></strong> &middot; <?= timeAgo($album['created_at']) ?>
                             </p>
                             <?php if (!empty($album['description'])): ?>
@@ -109,8 +120,8 @@ include __DIR__ . '/includes/header.php';
                             <?php endif; ?>
                             <div class="album-stats-bar">
                                 <span class="stat-pill" title="Disukai">❤️ <?= (int)$album['like_count'] ?></span>
-                                <span class="stat-pill" title="Komentar">&#128172; <?= (int)$album['comment_count'] ?></span>
-                                <span style="margin-left:auto;color:var(--primary);font-size:0.82rem;font-weight:700;">Buka &rarr;</span>
+                                <span class="stat-pill" title="Komentar">💬 <?= (int)$album['comment_count'] ?></span>
+                                <span style="margin-left:auto;color:var(--primary);font-size:0.82rem;font-weight:700;">Detail &rarr;</span>
                             </div>
                         </div>
                     </a>
@@ -118,12 +129,12 @@ include __DIR__ . '/includes/header.php';
                 <?php endforeach; ?>
             </div>
             <div id="noResults" class="empty-state" style="display:none;margin-top:2rem;">
-                <span class="empty-icon">&#128269;</span>
+                <span class="empty-icon">🔍</span>
                 <p>Tidak ada album yang sesuai dengan kata kunci pencarian.</p>
             </div>
             <?php else: ?>
             <div class="empty-state page-anim">
-                <span class="empty-icon">&#128247;</span>
+                <span class="empty-icon">📸</span>
                 <p>Belum ada album foto yang diunggah.</p>
                 <p style="margin-top:0.75rem;">
                     <?php if ($user): ?>

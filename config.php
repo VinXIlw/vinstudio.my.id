@@ -20,7 +20,7 @@ define('DB_PORT', '3306');
 
 // Nama & Branding Aplikasi
 define('APP_NAME', 'VinStudio');
-define('APP_TAGLINE', 'Portal Komunitas & Galeri Digital');
+define('APP_TAGLINE', 'Creative Digital Hub & Community Portal');
 
 // ============================================================
 // INISIALISASI KONEKSI PDO (MySQL dengan Fallback ke SQLite)
@@ -28,7 +28,6 @@ define('APP_TAGLINE', 'Portal Komunitas & Galeri Digital');
 $pdo = null;
 $dbDriver = 'mysql';
 
-// Coba koneksi ke MySQL terlebih dahulu
 try {
     $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
     $pdo = new PDO($dsn, DB_USER, DB_PASS, [
@@ -53,6 +52,18 @@ try {
 
 // Inisialisasi tabel otomatis jika belum ada
 initDatabase($pdo, $dbDriver);
+
+// Perbarui aktivitas terakhir pengguna yang sedang login (maksimal 1x per 60 detik)
+if (isset($_SESSION['user_id'])) {
+    $now = time();
+    if (!isset($_SESSION['last_ping']) || ($now - $_SESSION['last_ping']) > 60) {
+        $_SESSION['last_ping'] = $now;
+        try {
+            $stmtPing = $pdo->prepare("UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?");
+            $stmtPing->execute([$_SESSION['user_id']]);
+        } catch (Exception $e) {}
+    }
+}
 
 function initDatabase($pdo, $driver) {
     $isSqlite = ($driver === 'sqlite');
@@ -143,6 +154,16 @@ function initDatabase($pdo, $driver) {
         )
     ");
 
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id {$autoInc},
+            user_id INT NOT NULL,
+            message TEXT NOT NULL,
+            reply_to_id INT NULL,
+            created_at {$timestamp}
+        )
+    ");
+
     // Pastikan baris profile id=1 selalu ada
     $checkProf = $pdo->query("SELECT id FROM profiles WHERE id = 1")->fetch();
     if (!$checkProf) {
@@ -170,6 +191,19 @@ function initDatabase($pdo, $driver) {
 
         $stmt = $pdo->prepare("INSERT INTO users (email, display_name, password, role) VALUES (?, ?, ?, 'admin')");
         $stmt->execute([$adminEmail, $adminName, $adminPass]);
+    }
+
+    // Seed pesan sambutan awal di Global Chat jika tabel masih kosong
+    $checkChat = $pdo->query("SELECT COUNT(*) as cnt FROM chat_messages")->fetch();
+    if ($checkChat && $checkChat['cnt'] == 0) {
+        $adminRow = $pdo->query("SELECT id FROM users ORDER BY id ASC LIMIT 1")->fetch();
+        if ($adminRow) {
+            $stmtChat = $pdo->prepare("INSERT INTO chat_messages (user_id, message) VALUES (?, ?)");
+            $stmtChat->execute([
+                $adminRow['id'],
+                'Halo semuanya! Selamat datang di Global Live Chat VinStudio 👋 Silakan berdiskusi, berbagi ide, atau menyapa anggota lainnya di sini!'
+            ]);
+        }
     }
 }
 
@@ -276,4 +310,10 @@ function avatarClass($name) {
         $sum += ord($name[$i]);
     }
     return 'avatar-' . ($sum % 5);
+}
+
+function readingTime($text) {
+    $words = str_word_count(strip_tags((string)$text));
+    $mins = max(1, (int)ceil($words / 180));
+    return $mins . ' mnt baca';
 }

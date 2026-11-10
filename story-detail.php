@@ -7,7 +7,6 @@ if (!$id) {
     exit;
 }
 
-// Ambil data cerita
 $stmt = $pdo->prepare("
     SELECT s.*, u.display_name AS username
     FROM stories s
@@ -26,7 +25,6 @@ if (!$story) {
 $pageTitle = $story['title'];
 $currentPage = 'stories';
 
-// Ambil komentar
 $cStmt = $pdo->prepare("
     SELECT c.*, u.display_name, u.role
     FROM comments c
@@ -37,12 +35,10 @@ $cStmt = $pdo->prepare("
 $cStmt->execute([$id]);
 $comments = $cStmt->fetchAll();
 
-// Hitung like
 $lStmt = $pdo->prepare("SELECT COUNT(*) FROM likes WHERE target_type = 'story' AND target_id = ?");
 $lStmt->execute([$id]);
 $likeCount = (int)$lStmt->fetchColumn();
 
-// Cek apakah user saat ini menyukai cerita
 $liked = false;
 $user = currentUser();
 if ($user) {
@@ -62,15 +58,15 @@ include __DIR__ . '/includes/header.php';
         background: var(--white);
         border: 1px solid var(--border);
         border-radius: var(--radius-xl);
-        padding: 2.5rem;
+        padding: 2.75rem;
         box-shadow: var(--shadow-sm);
         margin-bottom: 2rem;
     }
     .story-content-body {
         font-size: 1.12rem;
-        line-height: 1.85;
+        line-height: 1.88;
         color: var(--text-soft);
-        margin-top: 1.75rem;
+        margin-top: 1.85rem;
         white-space: pre-line;
         letter-spacing: 0.01em;
     }
@@ -78,9 +74,10 @@ include __DIR__ . '/includes/header.php';
         display: flex;
         align-items: center;
         gap: 1rem;
-        margin-top: 2rem;
+        margin-top: 2.25rem;
         padding-top: 1.25rem;
         border-top: 1px solid var(--border);
+        flex-wrap: wrap;
     }
     .like-btn {
         display: inline-flex;
@@ -99,11 +96,11 @@ include __DIR__ . '/includes/header.php';
     .like-btn:hover {
         border-color: #f43f5e;
         color: #f43f5e;
-        background: #fff1f2;
+        background: rgba(244, 63, 94, 0.08);
         transform: scale(1.04);
     }
     .like-btn.liked {
-        background: #ffe4e6;
+        background: rgba(244, 63, 94, 0.14);
         border-color: #f43f5e;
         color: #e11d48;
     }
@@ -142,8 +139,9 @@ include __DIR__ . '/includes/header.php';
 
 <main>
     <div class="container" style="max-width:880px;">
-        <div style="margin-bottom:1.25rem;">
+        <div style="margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
             <a href="stories.php" class="btn btn-outline btn-sm">&larr; Kembali ke Semua Cerita</a>
+            <button type="button" class="btn btn-outline btn-sm" data-share-url="">🔗 Bagikan Artikel</button>
         </div>
 
         <?php if ($msg): ?>
@@ -156,8 +154,11 @@ include __DIR__ . '/includes/header.php';
         <!-- Artikel Cerita -->
         <article class="story-article page-anim">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
-                <div>
-                    <h1 style="font-size:2.2rem;line-height:1.25;color:var(--dark);letter-spacing:-0.02em;margin-bottom:0.75rem;">
+                <div style="flex:1;">
+                    <div style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.78rem;color:var(--primary);font-weight:700;background:var(--primary-soft);padding:0.25rem 0.7rem;border-radius:999px;margin-bottom:0.85rem;">
+                        <span>⏱ Estimasi baca: <?= readingTime($story['content']) ?></span>
+                    </div>
+                    <h1 style="font-size:2.2rem;line-height:1.25;color:var(--dark);letter-spacing:-0.02em;margin-bottom:0.85rem;">
                         <?= htmlspecialchars($story['title']) ?>
                     </h1>
                     <div class="user-cell" style="margin-top:0.75rem;">
@@ -173,7 +174,7 @@ include __DIR__ . '/includes/header.php';
                 <?php if ($user && ($story['user_id'] == $user['id'] || $user['role'] === 'admin')): ?>
                     <form action="story-delete.php" method="POST" onsubmit="return confirm('Apakah kamu yakin ingin menghapus cerita ini?');">
                         <input type="hidden" name="id" value="<?= $story['id'] ?>">
-                        <button type="submit" class="btn btn-delete btn-sm">&#128465; Hapus Cerita</button>
+                        <button type="submit" class="btn btn-delete btn-sm">🗑 Hapus Cerita</button>
                     </form>
                 <?php endif; ?>
             </div>
@@ -200,14 +201,14 @@ include __DIR__ . '/includes/header.php';
                         <span><?= $likeCount ?> Suka</span>
                     </a>
                 <?php endif; ?>
-                <span class="admin-hint">&#128172; <?= count($comments) ?> Komentar</span>
+                <span class="admin-hint">💬 <?= count($comments) ?> Komentar</span>
             </div>
         </article>
 
         <!-- Bagian Komentar -->
         <div class="comments-section page-anim">
             <h2 style="font-size:1.3rem;margin-bottom:1.25rem;color:var(--dark);display:flex;align-items:center;gap:0.5rem;">
-                &#128172; Komentar (<?= count($comments) ?>)
+                💬 Diskusi &amp; Komentar (<?= count($comments) ?>)
             </h2>
 
             <?php if ($user): ?>
@@ -220,7 +221,7 @@ include __DIR__ . '/includes/header.php';
                         <label for="content">Tulis tanggapan atau apresiasi:</label>
                         <textarea id="content" name="content" rows="3" required placeholder="Tulis komentar kamu di sini..." style="resize:vertical;"></textarea>
                     </div>
-                    <button type="submit" class="btn btn-primary btn-sm">&#10148; Kirim Komentar</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Kirim Komentar</button>
                 </form>
             <?php else: ?>
                 <div class="empty-state" style="padding:1.5rem;margin-bottom:1.5rem;">
@@ -254,7 +255,7 @@ include __DIR__ . '/includes/header.php';
                                             <input type="hidden" name="comment_id" value="<?= $c['id'] ?>">
                                             <input type="hidden" name="return_url" value="story-detail.php?id=<?= $story['id'] ?>">
                                             <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger);padding:0.2rem 0.5rem;font-size:0.75rem;">
-                                                &#10005; Hapus
+                                                ✕ Hapus
                                             </button>
                                         </form>
                                     <?php endif; ?>

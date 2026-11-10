@@ -7,7 +7,6 @@ if (!$id) {
     exit;
 }
 
-// Ambil data album
 $stmt = $pdo->prepare("
     SELECT a.*, u.display_name AS username
     FROM albums a
@@ -26,7 +25,6 @@ if (!$album) {
 $pageTitle = $album['title'];
 $currentPage = 'albums';
 
-// Ambil komentar
 $cStmt = $pdo->prepare("
     SELECT c.*, u.display_name, u.role
     FROM comments c
@@ -37,12 +35,10 @@ $cStmt = $pdo->prepare("
 $cStmt->execute([$id]);
 $comments = $cStmt->fetchAll();
 
-// Hitung like
 $lStmt = $pdo->prepare("SELECT COUNT(*) FROM likes WHERE target_type = 'album' AND target_id = ?");
 $lStmt->execute([$id]);
 $likeCount = (int)$lStmt->fetchColumn();
 
-// Cek apakah user saat ini menyukai album
 $liked = false;
 $user = currentUser();
 if ($user) {
@@ -62,20 +58,36 @@ include __DIR__ . '/includes/header.php';
         position: relative;
         border-radius: var(--radius-xl);
         overflow: hidden;
-        background: #0f172a;
+        background: #020617;
         box-shadow: var(--shadow-lg);
         margin-bottom: 2rem;
-        max-height: 540px;
+        max-height: 560px;
         display: flex;
         align-items: center;
         justify-content: center;
+        border: 1px solid var(--border);
     }
     .detail-hero img {
         width: 100%;
         height: 100%;
-        max-height: 540px;
+        max-height: 560px;
         object-fit: contain;
         background: #020617;
+        transition: transform 0.3s ease;
+    }
+    .zoom-hint-badge {
+        position: absolute;
+        bottom: 1rem;
+        right: 1rem;
+        background: rgba(15, 23, 42, 0.78);
+        backdrop-filter: blur(8px);
+        color: #f8fafc;
+        padding: 0.4rem 0.85rem;
+        border-radius: var(--radius-pill);
+        font-size: 0.76rem;
+        font-weight: 600;
+        pointer-events: none;
+        border: 1px solid rgba(255, 255, 255, 0.15);
     }
     .detail-meta-card {
         background: var(--white);
@@ -95,10 +107,11 @@ include __DIR__ . '/includes/header.php';
     .like-bar {
         display: flex;
         align-items: center;
-        gap: 1rem;
-        margin-top: 1.25rem;
+        gap: 0.85rem;
+        margin-top: 1.35rem;
         padding-top: 1.25rem;
         border-top: 1px solid var(--border);
+        flex-wrap: wrap;
     }
     .like-btn {
         display: inline-flex;
@@ -110,18 +123,18 @@ include __DIR__ . '/includes/header.php';
         background: var(--white);
         color: var(--text-soft);
         font-weight: 700;
-        font-size: 0.95rem;
+        font-size: 0.92rem;
         cursor: pointer;
         transition: all var(--t) var(--ease);
     }
     .like-btn:hover {
         border-color: #f43f5e;
         color: #f43f5e;
-        background: #fff1f2;
-        transform: scale(1.04);
+        background: rgba(244, 63, 94, 0.08);
+        transform: scale(1.03);
     }
     .like-btn.liked {
-        background: #ffe4e6;
+        background: rgba(244, 63, 94, 0.14);
         border-color: #f43f5e;
         color: #e11d48;
     }
@@ -160,8 +173,9 @@ include __DIR__ . '/includes/header.php';
 
 <main>
     <div class="container" style="max-width:960px;">
-        <div style="margin-bottom:1.25rem;">
-            <a href="albums.php" class="btn btn-outline btn-sm">&larr; Kembali ke Semua Album</a>
+        <div style="margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+            <a href="albums.php" class="btn btn-outline btn-sm">&larr; Kembali ke Galeri Album</a>
+            <button type="button" class="btn btn-outline btn-sm" data-share-url="">🔗 Bagikan Tautan</button>
         </div>
 
         <?php if ($msg): ?>
@@ -171,10 +185,13 @@ include __DIR__ . '/includes/header.php';
             <div class="alert alert-error"><?= htmlspecialchars($err) ?></div>
         <?php endif; ?>
 
-        <!-- Preview Foto -->
+        <!-- Preview Foto dengan Lightbox -->
         <div class="detail-hero page-anim">
             <img src="<?= (!empty($album['photo']) && $album['photo'] !== 'no-image.png') ? 'uploads/' . htmlspecialchars($album['photo']) : 'img/placeholder.svg' ?>"
-                 alt="<?= htmlspecialchars($album['title']) ?>" onerror="this.onerror=null;this.src='img/placeholder.svg';">
+                 alt="<?= htmlspecialchars($album['title']) ?>"
+                 data-lightbox
+                 onerror="this.onerror=null;this.src='img/placeholder.svg';">
+            <span class="zoom-hint-badge">🔍 Klik gambar untuk perbesar</span>
         </div>
 
         <!-- Metadata Album -->
@@ -183,7 +200,7 @@ include __DIR__ . '/includes/header.php';
                 <div>
                     <h1 style="font-size:1.85rem;margin-bottom:0.4rem;color:var(--dark);"><?= htmlspecialchars($album['title']) ?></h1>
                     <div class="user-cell" style="margin-top:0.5rem;">
-                        <span class="user-avatar <?= avatarClass($album['username']) ?>" style="width:34px;height:34px;font-size:0.8rem;">
+                        <span class="user-avatar <?= avatarClass($album['username']) ?>" style="width:36px;height:36px;font-size:0.8rem;">
                             <?= initials($album['username']) ?>
                         </span>
                         <div class="user-info">
@@ -195,18 +212,18 @@ include __DIR__ . '/includes/header.php';
                 <?php if ($user && ($album['user_id'] == $user['id'] || $user['role'] === 'admin')): ?>
                     <form action="album-delete.php" method="POST" onsubmit="return confirm('Apakah kamu yakin ingin menghapus album ini?');">
                         <input type="hidden" name="id" value="<?= $album['id'] ?>">
-                        <button type="submit" class="btn btn-delete btn-sm">&#128465; Hapus Album</button>
+                        <button type="submit" class="btn btn-delete btn-sm">🗑 Hapus Album</button>
                     </form>
                 <?php endif; ?>
             </div>
 
             <?php if (!empty($album['description'])): ?>
-                <div style="margin-top:1.25rem;font-size:1.02rem;color:var(--text-soft);line-height:1.7;">
+                <div style="margin-top:1.25rem;font-size:1.02rem;color:var(--text-soft);line-height:1.72;">
                     <?= nl2br(htmlspecialchars($album['description'])) ?>
                 </div>
             <?php endif; ?>
 
-            <!-- Bar Like -->
+            <!-- Bar Like & Share -->
             <div class="like-bar">
                 <?php if ($user): ?>
                     <form action="like.php" method="POST" class="inline-form">
@@ -224,14 +241,14 @@ include __DIR__ . '/includes/header.php';
                         <span><?= $likeCount ?> Suka</span>
                     </a>
                 <?php endif; ?>
-                <span class="admin-hint">&#128172; <?= count($comments) ?> Komentar</span>
+                <span class="admin-hint">💬 <?= count($comments) ?> Komentar</span>
             </div>
         </div>
 
         <!-- Bagian Komentar -->
         <div class="comments-section page-anim">
             <h2 style="font-size:1.3rem;margin-bottom:1.25rem;color:var(--dark);display:flex;align-items:center;gap:0.5rem;">
-                &#128172; Komentar (<?= count($comments) ?>)
+                💬 Diskusi &amp; Komentar (<?= count($comments) ?>)
             </h2>
 
             <?php if ($user): ?>
@@ -241,20 +258,20 @@ include __DIR__ . '/includes/header.php';
                     <input type="hidden" name="target_id" value="<?= $album['id'] ?>">
                     <input type="hidden" name="return_url" value="album-detail.php?id=<?= $album['id'] ?>">
                     <div class="form-group">
-                        <label for="content">Tulis tanggapan atau komentar:</label>
+                        <label for="content">Tulis tanggapan atau apresiasi:</label>
                         <textarea id="content" name="content" rows="3" required placeholder="Tulis komentar kamu di sini..." style="resize:vertical;"></textarea>
                     </div>
-                    <button type="submit" class="btn btn-primary btn-sm">&#10148; Kirim Komentar</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Kirim Komentar</button>
                 </form>
             <?php else: ?>
                 <div class="empty-state" style="padding:1.5rem;margin-bottom:1.5rem;">
-                    <p>Ingin bergabung dalam obrolan? <a href="login.php?r=album-detail.php?id=<?= $album['id'] ?>">Masuk untuk menulis komentar</a></p>
+                    <p>Ingin bergabung dalam diskusi? <a href="login.php?r=album-detail.php?id=<?= $album['id'] ?>">Masuk untuk menulis komentar</a></p>
                 </div>
             <?php endif; ?>
 
             <?php if (empty($comments)): ?>
                 <div class="empty-state" style="padding:2rem;">
-                    <p class="admin-hint">Belum ada komentar untuk album ini. Jadilah yang pertama memberikan tanggapan!</p>
+                    <p class="admin-hint">Belum ada komentar untuk karya ini. Jadilah yang pertama memberikan tanggapan!</p>
                 </div>
             <?php else: ?>
                 <div class="comments-list">
@@ -278,7 +295,7 @@ include __DIR__ . '/includes/header.php';
                                             <input type="hidden" name="comment_id" value="<?= $c['id'] ?>">
                                             <input type="hidden" name="return_url" value="album-detail.php?id=<?= $album['id'] ?>">
                                             <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger);padding:0.2rem 0.5rem;font-size:0.75rem;">
-                                                &#10005; Hapus
+                                                ✕ Hapus
                                             </button>
                                         </form>
                                     <?php endif; ?>
