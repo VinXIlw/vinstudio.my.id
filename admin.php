@@ -36,11 +36,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($resetPhoto) {
             $finalPhoto = 'tkj-logo.png';
-        } elseif (isset($_FILES['classphoto']) && $_FILES['classphoto']['error'] === UPLOAD_ERR_OK) {
-            $ext = strtolower(pathinfo($_FILES['classphoto']['name'], PATHINFO_EXTENSION));
-            if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
-                $finalPhoto = 'profile-' . time() . '.' . $ext;
-                move_uploaded_file($_FILES['classphoto']['tmp_name'], __DIR__ . '/uploads/' . $finalPhoto);
+        } elseif (isset($_FILES['classphoto']) && $_FILES['classphoto']['error'] !== UPLOAD_ERR_NO_FILE) {
+            $upRes = saveUploadedImage($_FILES['classphoto'], 'profile');
+            if ($upRes['ok']) {
+                $finalPhoto = $upRes['filename'];
             }
         }
 

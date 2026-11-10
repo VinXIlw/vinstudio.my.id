@@ -350,3 +350,78 @@ function readingTime($text) {
     $mins = max(1, (int)ceil($words / 180));
     return $mins . ' mnt baca';
 }
+
+/**
+ * Menyimpan berkas gambar unggahan secara aman dan andal
+ * Dilengkapi validasi ekstensi, ukuran, MIME-type, dan fallback writing multi-tier
+ */
+function saveUploadedImage($file, $prefix = 'photo') {
+    if (!isset($file) || $file['error'] !== UPLOAD_ERR_OK) {
+        $phpErrors = [
+            UPLOAD_ERR_INI_SIZE   => 'Ukuran file melebihi upload_max_filesize di php.ini hosting.',
+            UPLOAD_ERR_FORM_SIZE  => 'Ukuran file melebihi batas form.',
+            UPLOAD_ERR_PARTIAL    => 'File hanya terunggah sebagian. Silakan ulangi.',
+            UPLOAD_ERR_NO_FILE    => 'Tidak ada file yang dipilih.',
+            UPLOAD_ERR_NO_TMP_DIR => 'Folder temporary PHP di server hilang.',
+            UPLOAD_ERR_CANT_WRITE => 'Gagal menulis file ke disk server (Izin direktori atau kuota disk penuh).',
+            UPLOAD_ERR_EXTENSION  => 'Ekstensi PHP memblokir unggahan file ini.',
+        ];
+        $msg = $phpErrors[$file['error']] ?? 'Terjadi kesalahan saat mengunggah file (Kode: ' . ($file['error'] ?? 'unknown') . ').';
+        return ['ok' => false, 'error' => $msg];
+    }
+
+    $maxSize = 5 * 1024 * 1024; // 5 MB
+    if ($file['size'] > $maxSize) {
+        return ['ok' => false, 'error' => 'Ukuran file foto maksimal adalah 5MB.'];
+    }
+
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $allowed = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    if (!in_array($ext, $allowed)) {
+        return ['ok' => false, 'error' => 'Format file tidak didukung. Gunakan JPG, PNG, WEBP, atau GIF.'];
+    }
+
+    $imgInfo = @getimagesize($file['tmp_name']);
+    if (!$imgInfo) {
+        return ['ok' => false, 'error' => 'Berkas yang dipilih bukan gambar yang valid.'];
+    }
+
+    $uploadDir = __DIR__ . '/uploads';
+    if (!is_dir($uploadDir)) {
+        @mkdir($uploadDir, 0777, true);
+    }
+    @chmod($uploadDir, 0777);
+
+    $safePrefix = preg_replace('/[^a-zA-Z0-9_\-]/', '', $prefix);
+    $filename = $safePrefix . '-' . time() . '-' . mt_rand(1000, 9999) . '.' . $ext;
+    $dest = $uploadDir . '/' . $filename;
+
+    $saved = false;
+    if (is_uploaded_file($file['tmp_name'])) {
+        if (@move_uploaded_file($file['tmp_name'], $dest)) {
+            $saved = true;
+        } elseif (@copy($file['tmp_name'], $dest)) {
+            $saved = true;
+            @unlink($file['tmp_name']);
+        } elseif (($content = @file_get_contents($file['tmp_name'])) !== false) {
+            if (@file_put_contents($dest, $content) !== false) {
+                $saved = true;
+                @unlink($file['tmp_name']);
+            }
+        }
+    }
+
+    if (!$saved) {
+        $lastErr = error_get_last();
+        $detail = '';
+        if (!is_writable($uploadDir)) {
+            $detail = ' — Folder uploads/ di server tidak memiliki izin tulis (write permission). Periksa izin folder (chmod 755/777) di File Manager hosting.';
+        } elseif (!empty($lastErr['message'])) {
+            $detail = ' (' . $lastErr['message'] . ')';
+        }
+        return ['ok' => false, 'error' => 'Gagal menyimpan foto ke server' . $detail];
+    }
+
+    @chmod($dest, 0664);
+    return ['ok' => true, 'filename' => $filename];
+}

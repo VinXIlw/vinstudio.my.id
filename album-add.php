@@ -16,21 +16,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $photoName = 'no-image.png';
 
-        if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
-            $tmpName = $_FILES['photo']['tmp_name'];
-            $origName = $_FILES['photo']['name'];
-            $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
-            $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-
-            if (in_array($ext, $allowed)) {
-                $uploadDir = __DIR__ . '/uploads';
-                if (!is_dir($uploadDir)) {
-                    mkdir($uploadDir, 0755, true);
-                }
-                $photoName = 'photo-' . time() . '-' . mt_rand(1000, 9999) . '.' . $ext;
-                move_uploaded_file($tmpName, $uploadDir . '/' . $photoName);
+        if (isset($_FILES['photo']) && $_FILES['photo']['error'] !== UPLOAD_ERR_NO_FILE) {
+            $upRes = saveUploadedImage($_FILES['photo'], 'photo-' . $user['id']);
+            if (!$upRes['ok']) {
+                $error = $upRes['error'];
             } else {
-                $error = 'Format file tidak didukung! Gunakan JPG, PNG, GIF, atau WEBP.';
+                $photoName = $upRes['filename'];
             }
         }
 

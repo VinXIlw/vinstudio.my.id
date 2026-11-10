@@ -41,44 +41,18 @@ if ($action === 'update_profile') {
             @unlink(__DIR__ . '/uploads/' . $currentAvatar);
         }
         $finalAvatar = null;
-    } elseif (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
-        $file = $_FILES['avatar'];
-        $maxSize = 5 * 1024 * 1024; // 5MB
-
-        if ($file['size'] > $maxSize) {
-            header("Location: dashboard.php?err=" . urlencode("Ukuran file foto maksimal adalah 5MB."));
+    } elseif (isset($_FILES['avatar']) && $_FILES['avatar']['error'] !== UPLOAD_ERR_NO_FILE) {
+        $uploadRes = saveUploadedImage($_FILES['avatar'], 'avatar-' . $user['id']);
+        if (!$uploadRes['ok']) {
+            header("Location: dashboard.php?err=" . urlencode($uploadRes['error']));
             exit;
         }
 
-        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-        $allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-
-        if (!in_array($ext, $allowedExts)) {
-            header("Location: dashboard.php?err=" . urlencode("Format foto tidak didukung. Gunakan JPG, PNG, WEBP, atau GIF."));
-            exit;
+        // Hapus avatar lama jika berbeda
+        if (!empty($currentAvatar) && $currentAvatar !== $uploadRes['filename'] && file_exists(__DIR__ . '/uploads/' . $currentAvatar)) {
+            @unlink(__DIR__ . '/uploads/' . $currentAvatar);
         }
-
-        // Verifikasi bahwa file benar-benar gambar
-        $imgInfo = @getimagesize($file['tmp_name']);
-        if (!$imgInfo) {
-            header("Location: dashboard.php?err=" . urlencode("File yang diunggah bukan berkas gambar yang valid."));
-            exit;
-        }
-
-        // Buat nama unik untuk file avatar
-        $newFilename = 'avatar-' . $user['id'] . '-' . time() . '.' . $ext;
-        $destination = __DIR__ . '/uploads/' . $newFilename;
-
-        if (move_uploaded_file($file['tmp_name'], $destination)) {
-            // Hapus avatar lama jika ada
-            if (!empty($currentAvatar) && file_exists(__DIR__ . '/uploads/' . $currentAvatar)) {
-                @unlink(__DIR__ . '/uploads/' . $currentAvatar);
-            }
-            $finalAvatar = $newFilename;
-        } else {
-            header("Location: dashboard.php?err=" . urlencode("Gagal mengunggah foto profil. Silakan coba lagi."));
-            exit;
-        }
+        $finalAvatar = $uploadRes['filename'];
     }
 
     // Simpan ke database
