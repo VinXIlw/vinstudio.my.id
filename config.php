@@ -91,11 +91,21 @@ function initDatabase($pdo, $driver) {
             display_name VARCHAR(100) NOT NULL,
             password VARCHAR(255) NOT NULL,
             role VARCHAR(20) DEFAULT 'user',
+            avatar VARCHAR(255) NULL,
+            bio TEXT NULL,
             is_banned TINYINT DEFAULT 0,
             last_login_at DATETIME NULL,
             created_at {$timestamp}
         )
     ");
+
+    // Auto-migration untuk kolom avatar dan bio di tabel users (jika database sudah dibuat sebelumnya)
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN avatar VARCHAR(255) NULL");
+    } catch (Exception $e) {}
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN bio TEXT NULL");
+    } catch (Exception $e) {}
 
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS albums (
@@ -204,13 +214,44 @@ function initDatabase($pdo, $driver) {
 // ============================================================
 
 function currentUser() {
+    global $pdo;
     if (!isset($_SESSION['user_id'])) return null;
+
+    // Pastikan avatar dan bio tersinkronisasi di sesi pengguna
+    if (!isset($_SESSION['avatar']) || !isset($_SESSION['bio'])) {
+        try {
+            if ($pdo) {
+                $stmt = $pdo->prepare("SELECT display_name, role, avatar, bio FROM users WHERE id = ?");
+                $stmt->execute([$_SESSION['user_id']]);
+                if ($row = $stmt->fetch()) {
+                    $_SESSION['display_name'] = $row['display_name'];
+                    $_SESSION['role'] = $row['role'];
+                    $_SESSION['avatar'] = $row['avatar'];
+                    $_SESSION['bio'] = $row['bio'];
+                }
+            }
+        } catch (Exception $e) {}
+    }
+
     return [
-        'id'          => $_SESSION['user_id'],
+        'id'          => (int)$_SESSION['user_id'],
         'email'       => $_SESSION['email'] ?? '',
         'displayName' => $_SESSION['display_name'] ?? ($_SESSION['email'] ?? 'Pengguna'),
-        'role'        => $_SESSION['role'] ?? 'user'
+        'role'        => $_SESSION['role'] ?? 'user',
+        'avatar'      => $_SESSION['avatar'] ?? null,
+        'bio'         => $_SESSION['bio'] ?? ''
     ];
+}
+
+function renderAvatar($name, $avatar = null, $size = '36px', $extraClass = '', $extraStyle = '') {
+    $initials = initials($name);
+    $cls = avatarClass($name);
+    $safeName = htmlspecialchars($name ?? 'Pengguna');
+    if (!empty($avatar) && file_exists(__DIR__ . '/uploads/' . $avatar)) {
+        $safeAvatar = htmlspecialchars($avatar);
+        return '<img src="uploads/' . $safeAvatar . '" alt="' . $safeName . '" class="user-avatar-img ' . $extraClass . '" style="width:' . $size . ';height:' . $size . ';border-radius:50%;object-fit:cover;flex-shrink:0;' . $extraStyle . '" onerror="this.onerror=null;this.replaceWith(document.createRange().createContextualFragment(\'<span class=\\\'user-avatar ' . $cls . ' ' . $extraClass . '\\\' style=\\\'width:' . $size . ';height:' . $size . ';font-size:calc(' . $size . ' * 0.4);flex-shrink:0;' . $extraStyle . '\\\'>' . $initials . '</span>\'));">';
+    }
+    return '<span class="user-avatar ' . $cls . ' ' . $extraClass . '" style="width:' . $size . ';height:' . $size . ';font-size:calc(' . $size . ' * 0.4);flex-shrink:0;' . $extraStyle . '">' . $initials . '</span>';
 }
 
 function requireLogin() {

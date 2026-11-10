@@ -24,6 +24,7 @@ function formatChatMessage($row, $currentUser) {
         'role'         => $row['role'] ?? 'user',
         'initials'     => initials($row['display_name'] ?? 'Pengguna'),
         'avatar_class' => avatarClass($row['display_name'] ?? 'Pengguna'),
+        'avatar'       => (!empty($row['avatar']) && file_exists(__DIR__ . '/uploads/' . $row['avatar'])) ? $row['avatar'] : null,
         'message'      => $row['message'],
         'reply_to_id'  => $row['reply_to_id'] ? (int)$row['reply_to_id'] : null,
         'reply_user'   => $row['reply_user'] ?? null,
@@ -43,7 +44,7 @@ try {
 
         if ($afterId > 0) {
             $stmt = $pdo->prepare("
-                SELECT m.*, u.display_name, u.role,
+                SELECT m.*, u.display_name, u.role, u.avatar,
                        rm.message AS reply_text, ru.display_name AS reply_user
                 FROM chat_messages m
                 JOIN users u ON m.user_id = u.id
@@ -58,7 +59,7 @@ try {
         } else {
             $stmt = $pdo->prepare("
                 SELECT * FROM (
-                    SELECT m.*, u.display_name, u.role,
+                    SELECT m.*, u.display_name, u.role, u.avatar,
                            rm.message AS reply_text, ru.display_name AS reply_user
                     FROM chat_messages m
                     JOIN users u ON m.user_id = u.id
@@ -80,7 +81,7 @@ try {
 
         // Ambil daftar anggota komunitas & status aktif (online jika aktif dalam 10 menit terakhir)
         $usersRows = $pdo->query("
-            SELECT id, display_name, role, last_login_at
+            SELECT id, display_name, role, avatar, last_login_at
             FROM users
             WHERE is_banned = 0
             ORDER BY CASE role WHEN 'admin' THEN 0 ELSE 1 END, last_login_at DESC, id ASC
@@ -100,6 +101,7 @@ try {
                 'role'         => $u['role'],
                 'initials'     => initials($u['display_name']),
                 'avatar_class' => avatarClass($u['display_name']),
+                'avatar'       => (!empty($u['avatar']) && file_exists(__DIR__ . '/uploads/' . $u['avatar'])) ? $u['avatar'] : null,
                 'online'       => $isOnline,
                 'last_seen'    => $u['last_login_at'] ? timeAgo($u['last_login_at']) : 'Baru bergabung'
             ];
@@ -152,7 +154,7 @@ try {
         $pdo->prepare("UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$user['id']]);
 
         $sel = $pdo->prepare("
-            SELECT m.*, u.display_name, u.role,
+            SELECT m.*, u.display_name, u.role, u.avatar,
                    rm.message AS reply_text, ru.display_name AS reply_user
             FROM chat_messages m
             JOIN users u ON m.user_id = u.id

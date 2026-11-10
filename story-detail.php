@@ -8,7 +8,7 @@ if (!$id) {
 }
 
 $stmt = $pdo->prepare("
-    SELECT s.*, u.display_name AS username
+    SELECT s.*, u.display_name AS username, u.avatar AS user_avatar
     FROM stories s
     JOIN users u ON s.user_id = u.id
     WHERE s.id = ?
@@ -26,7 +26,7 @@ $pageTitle = $story['title'];
 $currentPage = 'stories';
 
 $cStmt = $pdo->prepare("
-    SELECT c.*, u.display_name, u.role
+    SELECT c.*, u.display_name, u.role, u.avatar AS user_avatar
     FROM comments c
     JOIN users u ON c.user_id = u.id
     WHERE c.target_type = 'story' AND c.target_id = ?
@@ -162,9 +162,7 @@ include __DIR__ . '/includes/header.php';
                         <?= htmlspecialchars($story['title']) ?>
                     </h1>
                     <div class="user-cell" style="margin-top:0.75rem;">
-                        <span class="user-avatar <?= avatarClass($story['username']) ?>" style="width:40px;height:40px;">
-                            <?= initials($story['username']) ?>
-                        </span>
+                        <?= renderAvatar($story['username'], $story['user_avatar'] ?? null, '40px') ?>
                         <div class="user-info">
                             <div class="user-name"><?= htmlspecialchars($story['username']) ?></div>
                             <span class="user-email"><?= fmtDateTime($story['created_at']) ?> &middot; <?= timeAgo($story['created_at']) ?></span>
@@ -237,9 +235,7 @@ include __DIR__ . '/includes/header.php';
                 <div class="comments-list">
                     <?php foreach ($comments as $c): ?>
                         <div class="comment-item">
-                            <span class="user-avatar <?= avatarClass($c['display_name']) ?>" style="width:38px;height:38px;font-size:0.85rem;flex-shrink:0;">
-                                <?= initials($c['display_name']) ?>
-                            </span>
+                            <?= renderAvatar($c['display_name'], $c['user_avatar'] ?? null, '38px', '', 'margin-right:0.6rem;') ?>
                             <div class="comment-content-box">
                                 <div class="comment-author-row">
                                     <div>

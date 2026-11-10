@@ -249,8 +249,12 @@ include __DIR__ . '/includes/header.php';
             ? `<button type="button" class="chat-action-btn reply" data-reply-id="${m.id}" data-reply-user="${escapeHtml(m.display_name)}" data-reply-text="${escapeHtml(m.message)}" title="Balas pesan">↩ Balas</button>`
             : '';
 
+        const avatarHtml = m.avatar
+            ? `<img src="uploads/${escapeHtml(m.avatar)}" class="user-avatar-img chat-msg-avatar" alt="${escapeHtml(m.display_name)}">`
+            : `<div class="user-avatar ${escapeHtml(m.avatar_class)} chat-msg-avatar">${escapeHtml(m.initials)}</div>`;
+
         item.innerHTML = `
-            <div class="user-avatar ${escapeHtml(m.avatar_class)} chat-msg-avatar">${escapeHtml(m.initials)}</div>
+            ${avatarHtml}
             <div class="chat-msg-bubble-wrap">
                 <div class="chat-msg-meta">
                     <strong class="chat-msg-author">${escapeHtml(m.display_name)}</strong>
@@ -274,11 +278,13 @@ include __DIR__ . '/includes/header.php';
         if (onlineBadge) onlineBadge.textContent = onlineCount + ' Online';
         if (!membersList || !Array.isArray(members)) return;
         membersList.innerHTML = members.map(function(u) {
+            const memAvatarHtml = u.avatar
+                ? `<img src="uploads/${escapeHtml(u.avatar)}" class="user-avatar-img" style="width:36px;height:36px;" alt="${escapeHtml(u.display_name)}">`
+                : `<div class="user-avatar ${escapeHtml(u.avatar_class)}" style="width:36px;height:36px;font-size:0.8rem;">${escapeHtml(u.initials)}</div>`;
+
             return `
                 <div class="chat-member-row">
-                    <div class="user-avatar ${escapeHtml(u.avatar_class)}" style="width:36px;height:36px;font-size:0.8rem;">
-                        ${escapeHtml(u.initials)}
-                    </div>
+                    ${memAvatarHtml}
                     <div class="chat-member-info">
                         <div class="chat-member-name">
                             <span>${escapeHtml(u.display_name)}</span>

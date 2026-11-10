@@ -1039,10 +1039,17 @@
                         const delBtn = m.can_delete
                             ? `<button type="button" data-mini-del="${m.id}" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:0.72rem;" title="Hapus">🗑</button>`
                             : '';
+                        const miniAvatar = m.avatar
+                            ? `<img src="uploads/${escapeHtml(m.avatar)}" class="user-avatar-img" style="width:20px;height:20px;margin-right:0.35rem;" alt="${escapeHtml(m.display_name)}">`
+                            : `<span class="user-avatar ${escapeHtml(m.avatar_class)}" style="width:20px;height:20px;font-size:0.55rem;margin-right:0.35rem;">${escapeHtml(m.initials)}</span>`;
+
                         return `
                             <div class="mini-msg-item ${m.is_mine ? 'is-mine' : ''}" data-mini-id="${m.id}">
                                 <div class="mini-msg-top">
-                                    <strong style="color:var(--dark);">${escapeHtml(m.display_name)}</strong>
+                                    <strong style="color:var(--dark);display:flex;align-items:center;">
+                                        ${miniAvatar}
+                                        <span>${escapeHtml(m.display_name)}</span>
+                                    </strong>
                                     <span style="color:var(--muted);display:flex;align-items:center;gap:0.35rem;">
                                         ${escapeHtml(m.time_clock)} ${delBtn}
                                     </span>

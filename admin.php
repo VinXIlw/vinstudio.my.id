@@ -221,7 +221,7 @@ $totalLikes = (int)$pdo->query("SELECT COUNT(*) FROM likes")->fetchColumn();
 
 // Daftar Pengguna
 $users = $pdo->query("
-    SELECT u.id, u.email, u.display_name, u.role, u.is_banned, u.last_login_at, u.created_at,
+    SELECT u.id, u.email, u.display_name, u.role, u.avatar, u.is_banned, u.last_login_at, u.created_at,
            (SELECT COUNT(*) FROM albums WHERE user_id = u.id) AS album_count,
            (SELECT COUNT(*) FROM stories WHERE user_id = u.id) AS story_count
     FROM users u
@@ -242,7 +242,7 @@ include __DIR__ . '/includes/header.php';
             <p class="page-subtitle">Kelola profil portal, data pengguna, galeri konten, dan log keamanan.</p>
         </div>
         <div class="user-cell">
-            <span class="user-avatar <?= avatarClass($user['displayName']) ?>"><?= initials($user['displayName']) ?></span>
+            <?= renderAvatar($user['displayName'], $user['avatar'] ?? null, '38px') ?>
             <div class="user-info">
                 <div class="user-name"><?= htmlspecialchars($user['displayName']) ?></div>
                 <span class="user-email"><?= htmlspecialchars($user['email']) ?></span>
@@ -447,7 +447,7 @@ include __DIR__ . '/includes/header.php';
                             <tr>
                                 <td class="col-user">
                                     <div class="user-cell">
-                                        <span class="user-avatar <?= avatarClass($u['display_name']) ?>"><?= initials($u['display_name']) ?></span>
+                                        <?= renderAvatar($u['display_name'], $u['avatar'] ?? null, '36px') ?>
                                         <div class="user-info">
                                             <div class="user-name">
                                                 <?= htmlspecialchars($u['display_name']) ?>

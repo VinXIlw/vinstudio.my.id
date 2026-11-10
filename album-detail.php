@@ -8,7 +8,7 @@ if (!$id) {
 }
 
 $stmt = $pdo->prepare("
-    SELECT a.*, u.display_name AS username
+    SELECT a.*, u.display_name AS username, u.avatar AS user_avatar
     FROM albums a
     JOIN users u ON a.user_id = u.id
     WHERE a.id = ?
@@ -26,7 +26,7 @@ $pageTitle = $album['title'];
 $currentPage = 'albums';
 
 $cStmt = $pdo->prepare("
-    SELECT c.*, u.display_name, u.role
+    SELECT c.*, u.display_name, u.role, u.avatar AS user_avatar
     FROM comments c
     JOIN users u ON c.user_id = u.id
     WHERE c.target_type = 'album' AND c.target_id = ?
@@ -200,9 +200,7 @@ include __DIR__ . '/includes/header.php';
                 <div>
                     <h1 style="font-size:1.85rem;margin-bottom:0.4rem;color:var(--dark);"><?= htmlspecialchars($album['title']) ?></h1>
                     <div class="user-cell" style="margin-top:0.5rem;">
-                        <span class="user-avatar <?= avatarClass($album['username']) ?>" style="width:36px;height:36px;font-size:0.8rem;">
-                            <?= initials($album['username']) ?>
-                        </span>
+                        <?= renderAvatar($album['username'], $album['user_avatar'] ?? null, '38px') ?>
                         <div class="user-info">
                             <div class="user-name"><?= htmlspecialchars($album['username']) ?></div>
                             <span class="user-email"><?= fmtDateTime($album['created_at']) ?> (<?= timeAgo($album['created_at']) ?>)</span>
@@ -277,9 +275,7 @@ include __DIR__ . '/includes/header.php';
                 <div class="comments-list">
                     <?php foreach ($comments as $c): ?>
                         <div class="comment-item">
-                            <span class="user-avatar <?= avatarClass($c['display_name']) ?>" style="width:38px;height:38px;font-size:0.85rem;flex-shrink:0;">
-                                <?= initials($c['display_name']) ?>
-                            </span>
+                            <?= renderAvatar($c['display_name'], $c['user_avatar'] ?? null, '38px', '', 'margin-right:0.6rem;') ?>
                             <div class="comment-content-box">
                                 <div class="comment-author-row">
                                     <div>

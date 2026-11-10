@@ -772,11 +772,13 @@ include __DIR__ . '/includes/header.php';
                     const delBtn = m.can_delete
                         ? `<button type="button" class="preview-del-btn" data-home-del="${m.id}" title="Hapus pesan ini">🗑</button>`
                         : '';
+                    const itemAvatar = m.avatar
+                        ? `<img src="uploads/${escapeHtml(m.avatar)}" class="user-avatar-img" style="width:32px;height:32px;" alt="${escapeHtml(m.display_name)}">`
+                        : `<span class="user-avatar ${escapeHtml(m.avatar_class)}" style="width:32px;height:32px;font-size:0.74rem;">${escapeHtml(m.initials)}</span>`;
+
                     return `
                         <div class="chat-preview-item" data-preview-id="${m.id}">
-                            <span class="user-avatar ${escapeHtml(m.avatar_class)}" style="width:32px;height:32px;font-size:0.74rem;">
-                                ${escapeHtml(m.initials)}
-                            </span>
+                            ${itemAvatar}
                             <div style="flex:1;min-width:0;">
                                 <div style="display:flex;justify-content:space-between;font-size:0.75rem;">
                                     <strong style="color:var(--dark);">${escapeHtml(m.display_name)}</strong>

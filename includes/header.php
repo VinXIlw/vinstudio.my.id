@@ -84,7 +84,11 @@ $current = $currentPage ?? '';
                         <?php endif; ?>
                         <li>
                             <a href="dashboard.php" class="nav-user-pill <?= $current === 'dashboard' ? 'active' : '' ?>" title="<?= htmlspecialchars($user['email']) ?>">
-                                <span class="nav-mini-avatar <?= avatarClass($user['displayName']) ?>"><?= initials($user['displayName']) ?></span>
+                                <?php if (!empty($user['avatar']) && file_exists(__DIR__ . '/../uploads/' . $user['avatar'])): ?>
+                                    <img src="uploads/<?= htmlspecialchars($user['avatar']) ?>" alt="<?= htmlspecialchars($user['displayName']) ?>" class="nav-mini-avatar-img">
+                                <?php else: ?>
+                                    <span class="nav-mini-avatar <?= avatarClass($user['displayName']) ?>"><?= initials($user['displayName']) ?></span>
+                                <?php endif; ?>
                                 <span><?= htmlspecialchars($user['displayName']) ?></span>
                             </a>
                         </li>

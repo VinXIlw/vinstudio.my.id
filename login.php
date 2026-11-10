@@ -52,6 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['email'] = $user['email'];
             $_SESSION['display_name'] = $user['display_name'];
             $_SESSION['role'] = $user['role'];
+            $_SESSION['avatar'] = $user['avatar'] ?? null;
+            $_SESSION['bio'] = $user['bio'] ?? '';
 
             logActivity($pdo, $user['id'], $email, $user['display_name'], 'login', 'Login berhasil');
 

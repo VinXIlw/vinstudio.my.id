@@ -7,7 +7,7 @@ $currentPage = 'profile';
 $profile = $pdo->query("SELECT * FROM profiles LIMIT 1")->fetch();
 
 $members = $pdo->query("
-    SELECT u.id, u.display_name, u.role, u.created_at,
+    SELECT u.id, u.display_name, u.role, u.avatar, u.bio, u.created_at,
            (SELECT COUNT(*) FROM albums WHERE user_id = u.id) AS album_count,
            (SELECT COUNT(*) FROM stories WHERE user_id = u.id) AS story_count
     FROM users u
@@ -85,13 +85,16 @@ include __DIR__ . '/includes/header.php';
                     <div class="members-grid">
                         <?php foreach ($members as $m): ?>
                             <div class="member-card">
-                                <div class="user-avatar <?= avatarClass($m['display_name']) ?>" style="margin:0 auto 0.75rem;width:52px;height:52px;font-size:1.15rem;">
-                                    <?= initials($m['display_name']) ?>
-                                </div>
+                                <?= renderAvatar($m['display_name'], $m['avatar'] ?? null, '54px', '', 'margin:0 auto 0.75rem;') ?>
                                 <strong style="font-size:0.95rem;color:var(--dark);display:block;"><?= htmlspecialchars($m['display_name']) ?></strong>
                                 <span class="role-badge <?= $m['role'] === 'admin' ? 'role-admin' : 'role-user' ?>" style="font-size:0.68rem;margin-top:0.4rem;">
                                     <?= $m['role'] === 'admin' ? 'Administrator' : 'Anggota' ?>
                                 </span>
+                                <?php if (!empty($m['bio'])): ?>
+                                    <div class="member-bio" title="<?= htmlspecialchars($m['bio']) ?>">
+                                        &ldquo;<?= htmlspecialchars(mb_strimwidth($m['bio'], 0, 75, '...')) ?>&rdquo;
+                                    </div>
+                                <?php endif; ?>
                                 <div class="admin-hint" style="margin-top:0.5rem;">
                                     <?= (int)$m['album_count'] ?> album &middot; <?= (int)$m['story_count'] ?> cerita
                                 </div>
