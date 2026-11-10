@@ -136,7 +136,7 @@ include __DIR__ . '/includes/header.php';
                                 <div class="avatar-edit-container">
                                     <div class="avatar-preview-box">
                                         <div id="avatarLiveContainer">
-                                            <?= renderAvatar($userData['display_name'], $userData['avatar'], '80px', '', 'id="currentAvatarImg"') ?>
+                                            <?= renderAvatar($userData['display_name'], $userData['avatar'], '80px', '', '', 'currentAvatarImg') ?>
                                         </div>
                                         <span class="avatar-preview-label">Foto Saat Ini</span>
                                     </div>

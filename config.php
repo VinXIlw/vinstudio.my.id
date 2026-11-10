@@ -243,15 +243,17 @@ function currentUser() {
     ];
 }
 
-function renderAvatar($name, $avatar = null, $size = '36px', $extraClass = '', $extraStyle = '') {
+function renderAvatar($name, $avatar = null, $size = '36px', $extraClass = '', $extraStyle = '', $id = '') {
     $initials = initials($name);
     $cls = avatarClass($name);
     $safeName = htmlspecialchars($name ?? 'Pengguna');
+    $idAttr = !empty($id) ? ' id="' . htmlspecialchars($id) . '"' : '';
+
     if (!empty($avatar) && file_exists(__DIR__ . '/uploads/' . $avatar)) {
         $safeAvatar = htmlspecialchars($avatar);
-        return '<img src="uploads/' . $safeAvatar . '" alt="' . $safeName . '" class="user-avatar-img ' . $extraClass . '" style="width:' . $size . ';height:' . $size . ';border-radius:50%;object-fit:cover;flex-shrink:0;' . $extraStyle . '" onerror="this.onerror=null;this.replaceWith(document.createRange().createContextualFragment(\'<span class=\\\'user-avatar ' . $cls . ' ' . $extraClass . '\\\' style=\\\'width:' . $size . ';height:' . $size . ';font-size:calc(' . $size . ' * 0.4);flex-shrink:0;' . $extraStyle . '\\\'>' . $initials . '</span>\'));">';
+        return '<img src="uploads/' . $safeAvatar . '" alt="' . $safeName . '" class="user-avatar-img ' . $extraClass . '" style="width:' . $size . ';height:' . $size . ';border-radius:50%;object-fit:cover;flex-shrink:0;' . $extraStyle . '"' . $idAttr . ' onerror="this.onerror=null;this.src=\'img/placeholder.svg\';">';
     }
-    return '<span class="user-avatar ' . $cls . ' ' . $extraClass . '" style="width:' . $size . ';height:' . $size . ';font-size:calc(' . $size . ' * 0.4);flex-shrink:0;' . $extraStyle . '">' . $initials . '</span>';
+    return '<span class="user-avatar ' . $cls . ' ' . $extraClass . '" style="width:' . $size . ';height:' . $size . ';font-size:calc(' . $size . ' * 0.4);flex-shrink:0;' . $extraStyle . '"' . $idAttr . '>' . $initials . '</span>';
 }
 
 function requireLogin() {
