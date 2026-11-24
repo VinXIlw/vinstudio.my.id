@@ -1,0 +1,27 @@
+# Proteksi Direktori Uploads — Hanya Izinkan File Gambar Statis, Matikan Eksekusi Script/PHP
+Options -Indexes -ExecCGI
+RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phar .pl .py .cgi
+RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8 .phar
+
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php8.c>
+    php_flag engine off
+</IfModule>
+
+# Tolak semua ekstensi berbahaya / executable
+<FilesMatch "(?i)\.(php[0-9]?|phtml|phar|inc|pl|py|cgi|sh|bash|exe|dll|jsp|asp|aspx|htaccess|htm|html|shtml|svg|xml|js|mjs|json|sqlite|db|sql)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Content-Security-Policy "default-src 'none'; img-src 'self'; style-src 'none'; script-src 'none';"
+</IfModule>

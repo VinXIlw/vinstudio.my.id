@@ -1,36 +1,37 @@
 <?php
 /**
- * XI TKJ 1 - Global Live Chat AJAX API
- * Mendukung operasi: fetch, send, delete, clear_all (admin)
+ * XI TKJ 1 — Global Live Chat Secure API
+ * Terlindungi oleh Token CSRF, Rate Limiting Anti-Flood, & Validasi Otorisasi Ketat
  */
 require_once __DIR__ . '/config.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
-$user = currentUser();
+$user   = currentUser();
 $action = $_REQUEST['action'] ?? 'fetch';
 
-function formatChatMessage($row, $currentUser) {
-    $isMine = $currentUser && ((int)$row['user_id'] === (int)$currentUser['id']);
+function formatChatMessage(array $row, ?array $currentUser): array {
+    $isMine  = $currentUser && ((int)$row['user_id'] === (int)$currentUser['id']);
     $isAdmin = $currentUser && ($currentUser['role'] === 'admin');
-    $time = strtotime($row['created_at']);
-    $timeClock = $time ? date('H:i', $time) : '';
+    $time    = strtotime($row['created_at'] ?? '');
+    $cleanAv = !empty($row['avatar']) ? basename($row['avatar']) : '';
 
     return [
         'id'           => (int)$row['id'],
         'user_id'      => (int)$row['user_id'],
-        'display_name' => $row['display_name'] ?? 'Pengguna',
+        'display_name' => $row['display_name'] ?? 'Anggota',
         'role'         => $row['role'] ?? 'user',
-        'initials'     => initials($row['display_name'] ?? 'Pengguna'),
-        'avatar_class' => avatarClass($row['display_name'] ?? 'Pengguna'),
-        'avatar'       => (!empty($row['avatar']) && file_exists(__DIR__ . '/uploads/' . $row['avatar'])) ? $row['avatar'] : null,
+        'specialty'    => $row['specialty'] ?? '',
+        'initials'     => initials($row['display_name'] ?? 'Anggota'),
+        'avatar_class' => avatarClass($row['display_name'] ?? 'Anggota'),
+        'avatar'       => ($cleanAv !== '' && is_file(__DIR__ . '/uploads/' . $cleanAv)) ? $cleanAv : null,
         'message'      => $row['message'],
-        'reply_to_id'  => $row['reply_to_id'] ? (int)$row['reply_to_id'] : null,
+        'reply_to_id'  => !empty($row['reply_to_id']) ? (int)$row['reply_to_id'] : null,
         'reply_user'   => $row['reply_user'] ?? null,
-        'reply_text'   => isset($row['reply_text']) ? mb_strimwidth($row['reply_text'], 0, 80, '...') : null,
+        'reply_text'   => isset($row['reply_text']) ? mb_strimwidth($row['reply_text'], 0, 85, '...') : null,
         'created_at'   => $row['created_at'],
-        'time_clock'   => $timeClock,
+        'time_clock'   => $time ? date('H:i', $time) : '',
         'time_ago'     => timeAgo($row['created_at']),
         'is_mine'      => $isMine,
         'can_delete'   => ($isMine || $isAdmin),
@@ -40,11 +41,11 @@ function formatChatMessage($row, $currentUser) {
 try {
     if ($action === 'fetch') {
         $afterId = isset($_GET['after_id']) ? (int)$_GET['after_id'] : 0;
-        $limit = isset($_GET['limit']) ? min(120, max(1, (int)$_GET['limit'])) : 80;
+        $limit   = isset($_GET['limit']) ? min(100, max(1, (int)$_GET['limit'])) : 70;
 
         if ($afterId > 0) {
             $stmt = $pdo->prepare("
-                SELECT m.*, u.display_name, u.role, u.avatar,
+                SELECT m.*, u.display_name, u.role, u.avatar, u.specialty,
                        rm.message AS reply_text, ru.display_name AS reply_user
                 FROM chat_messages m
                 JOIN users u ON m.user_id = u.id
@@ -59,7 +60,7 @@ try {
         } else {
             $stmt = $pdo->prepare("
                 SELECT * FROM (
-                    SELECT m.*, u.display_name, u.role, u.avatar,
+                    SELECT m.*, u.display_name, u.role, u.avatar, u.specialty,
                            rm.message AS reply_text, ru.display_name AS reply_user
                     FROM chat_messages m
                     JOIN users u ON m.user_id = u.id
@@ -79,36 +80,39 @@ try {
             $messages[] = formatChatMessage($r, $user);
         }
 
-        // Ambil daftar anggota komunitas & status aktif (online jika aktif dalam 10 menit terakhir)
         $usersRows = $pdo->query("
-            SELECT id, display_name, role, avatar, last_login_at
+            SELECT id, display_name, role, avatar, specialty, last_login_at
             FROM users
             WHERE is_banned = 0
             ORDER BY CASE role WHEN 'admin' THEN 0 ELSE 1 END, last_login_at DESC, id ASC
-            LIMIT 30
+            LIMIT 35
         ")->fetchAll();
 
-        $members = [];
+        $members     = [];
         $onlineCount = 0;
-        $now = time();
+        $now         = time();
+
         foreach ($usersRows as $u) {
-            $lastTs = $u['last_login_at'] ? strtotime($u['last_login_at']) : 0;
+            $lastTs   = $u['last_login_at'] ? strtotime($u['last_login_at']) : 0;
             $isOnline = ($lastTs && ($now - $lastTs) <= 600) || ($user && (int)$u['id'] === (int)$user['id']);
             if ($isOnline) $onlineCount++;
+            $cleanAv = !empty($u['avatar']) ? basename($u['avatar']) : '';
+
             $members[] = [
                 'id'           => (int)$u['id'],
                 'display_name' => $u['display_name'],
                 'role'         => $u['role'],
+                'specialty'    => $u['specialty'] ?? '',
                 'initials'     => initials($u['display_name']),
                 'avatar_class' => avatarClass($u['display_name']),
-                'avatar'       => (!empty($u['avatar']) && file_exists(__DIR__ . '/uploads/' . $u['avatar'])) ? $u['avatar'] : null,
+                'avatar'       => ($cleanAv !== '' && is_file(__DIR__ . '/uploads/' . $cleanAv)) ? $cleanAv : null,
                 'online'       => $isOnline,
-                'last_seen'    => $u['last_login_at'] ? timeAgo($u['last_login_at']) : 'Baru bergabung'
+                'last_seen'    => $u['last_login_at'] ? timeAgo($u['last_login_at']) : 'Baru bergabung',
             ];
         }
 
         $totalMessages = (int)$pdo->query("SELECT COUNT(*) FROM chat_messages")->fetchColumn();
-        $allIds = $pdo->query("SELECT id FROM chat_messages ORDER BY id ASC")->fetchAll(PDO::FETCH_COLUMN);
+        $allIds        = $pdo->query("SELECT id FROM chat_messages ORDER BY id ASC")->fetchAll(PDO::FETCH_COLUMN);
 
         echo json_encode([
             'ok'             => true,
@@ -116,15 +120,24 @@ try {
             'members'        => $members,
             'online_count'   => max(1, $onlineCount),
             'total_messages' => $totalMessages,
-            'active_ids'     => array_map('intval', $allIds)
+            'active_ids'     => array_map('intval', $allIds),
         ]);
         exit;
     }
 
-    if ($action === 'send' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Seluruh aksi mutasi (send, delete, clear_all) WAJIB POST + Token CSRF Valid
+    requireCsrf(true);
+
+    if ($action === 'send') {
         if (!$user) {
             http_response_code(401);
             echo json_encode(['ok' => false, 'error' => 'Silakan masuk terlebih dahulu untuk mengirim pesan.']);
+            exit;
+        }
+
+        if (!checkRateLimit($pdo, 'chat_send_' . $user['id'], 8, 15)) {
+            http_response_code(429);
+            echo json_encode(['ok' => false, 'error' => 'Pesan dikirim terlalu cepat (Anti-Flood). Tunggu beberapa detik.']);
             exit;
         }
 
@@ -132,11 +145,11 @@ try {
         $uStmt->execute([$user['id']]);
         if ((int)$uStmt->fetchColumn() === 1) {
             http_response_code(403);
-            echo json_encode(['ok' => false, 'error' => 'Akun kamu sedang dibatasi.']);
+            echo json_encode(['ok' => false, 'error' => 'Akun Anda sedang dinonaktifkan.']);
             exit;
         }
 
-        $message = trim($_POST['message'] ?? '');
+        $message   = trim($_POST['message'] ?? '');
         $replyToId = !empty($_POST['reply_to_id']) ? (int)$_POST['reply_to_id'] : null;
 
         if ($message === '') {
@@ -147,6 +160,8 @@ try {
             $message = mb_substr($message, 0, 600);
         }
 
+        recordRateLimit($pdo, 'chat_send_' . $user['id']);
+
         $ins = $pdo->prepare("INSERT INTO chat_messages (user_id, message, reply_to_id) VALUES (?, ?, ?)");
         $ins->execute([$user['id'], $message, $replyToId]);
         $newId = (int)$pdo->lastInsertId();
@@ -154,7 +169,7 @@ try {
         $pdo->prepare("UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$user['id']]);
 
         $sel = $pdo->prepare("
-            SELECT m.*, u.display_name, u.role, u.avatar,
+            SELECT m.*, u.display_name, u.role, u.avatar, u.specialty,
                    rm.message AS reply_text, ru.display_name AS reply_user
             FROM chat_messages m
             JOIN users u ON m.user_id = u.id
@@ -167,12 +182,12 @@ try {
 
         echo json_encode([
             'ok'      => true,
-            'message' => formatChatMessage($row, $user)
+            'message' => formatChatMessage($row, $user),
         ]);
         exit;
     }
 
-    if ($action === 'delete' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($action === 'delete') {
         if (!$user) {
             http_response_code(401);
             echo json_encode(['ok' => false, 'error' => 'Tidak diizinkan.']);
@@ -180,7 +195,7 @@ try {
         }
 
         $msgId = (int)($_POST['id'] ?? 0);
-        $stmt = $pdo->prepare("SELECT * FROM chat_messages WHERE id = ?");
+        $stmt  = $pdo->prepare("SELECT * FROM chat_messages WHERE id = ?");
         $stmt->execute([$msgId]);
         $msg = $stmt->fetch();
 
@@ -191,7 +206,7 @@ try {
 
         if ((int)$msg['user_id'] !== (int)$user['id'] && $user['role'] !== 'admin') {
             http_response_code(403);
-            echo json_encode(['ok' => false, 'error' => 'Kamu tidak berhak menghapus pesan ini.']);
+            echo json_encode(['ok' => false, 'error' => 'Anda hanya dapat menghapus pesan milik sendiri.']);
             exit;
         }
 
@@ -200,19 +215,22 @@ try {
         exit;
     }
 
-    if ($action === 'clear_all' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($action === 'clear_all') {
         if (!$user || $user['role'] !== 'admin') {
             http_response_code(403);
-            echo json_encode(['ok' => false, 'error' => 'Hanya Administrator yang dapat membersihkan seluruh chat.']);
+            echo json_encode(['ok' => false, 'error' => 'Hanya Administrator yang dapat mengosongkan ruang chat.']);
             exit;
         }
+
         $pdo->exec("DELETE FROM chat_messages");
+        logActivity($pdo, $user['id'], $user['email'], $user['displayName'], 'admin:clear-chat', 'Mengosongkan riwayat Global Live Chat');
         echo json_encode(['ok' => true]);
         exit;
     }
 
+    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => 'Aksi tidak dikenali.']);
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['ok' => false, 'error' => 'Terjadi kesalahan server: ' . $e->getMessage()]);
+    echo json_encode(['ok' => false, 'error' => 'Terjadi kesalahan internal pada server obrolan.']);
 }

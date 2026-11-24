@@ -1,29 +1,54 @@
-# ============================================================
-# VinStudio - Apache Configuration (.htaccess)
-# ============================================================
+# ============================================================================
+# XI TKJ 1 Digital Hub — Strict Production Security & Performance (.htaccess)
+# ============================================================================
 
-# 1. Pastikan index.php dibuka pertama kali
-DirectoryIndex index.php index.html
+DirectoryIndex index.php
 
-# 2. Matikan penampilan daftar isi direktori (Mencegah "Index of /")
-Options -Indexes
+# 1. Matikan Directory Listing secara mutlak
+Options -Indexes -MultiViews
 
-# 3. Lindungi file sensitif & database dari download langsung
-<FilesMatch "(\.env|\.sqlite|\.sql|\.db|\.log|\.err|config\.php)$">
+# 2. Server Signature Off
+ServerSignature Off
+
+# 3. Blokir akses langsung ke seluruh file database, konfigurasi, backup, & log
+<FilesMatch "(?i)(\.(env|sqlite|sqlite3|db|db-journal|db-wal|db-shm|sql|bak|old|orig|save|swp|log|err|ini|sh|yml|yaml|md|lock)|^(config\.php|composer\.(json|lock)|package(-lock)?\.json))$">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>
     <IfModule !mod_authz_core.c>
-        Order deny,allow
+        Order allow,deny
         Deny from all
     </IfModule>
 </FilesMatch>
 
-# 4. Lindungi file & folder tersembunyi (seperti .git, .github)
+# 4. Rewrite Proteksi Direktori Internal (storage, includes, dotfiles)
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteRule "(^|/)\.(?!well-known)" - [F]
+
+    # Blokir semua folder/file tersembunyi (.git, .github, .env, .htaccess, dll) kecuali .well-known
+    RewriteRule "(^|/)\.(?!well-known/)" - [F,L]
+
+    # Blokir akses HTTP apa pun ke folder brankas database (storage/) & komponen PHP (includes/)
+    RewriteRule "^(storage|includes)(/|$)" - [F,L]
+
+    # Blokir eksekusi script apa pun di dalam folder uploads/
+    RewriteRule "^uploads/.*\.(php[0-9]?|phtml|phar|pl|py|jsp|asp|htm|html|shtml|sh|cgi|svg|js)$" - [F,L,NC]
 </IfModule>
 
-# 5. Charset default UTF-8
+# 5. HTTP Security Headers Ketat
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Content-Security-Policy "frame-ancestors 'self'; base-uri 'self'; object-src 'none';"
+    Header unset X-Powered-By
+</IfModule>
+
+# 6. Kompresi Gzip untuk Kecepatan Maksimal
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript application/javascript application/json image/svg+xml
+</IfModule>
+
 AddDefaultCharset UTF-8

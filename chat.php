@@ -3,18 +3,16 @@ require_once __DIR__ . '/config.php';
 
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
-$pageTitle = 'Global Live Chat';
+$pageTitle   = 'Global Live Chat';
 $currentPage = 'chat';
-$user = currentUser();
+$user        = currentUser();
 
 include __DIR__ . '/includes/header.php';
 ?>
 
 <main class="chat-page-main">
     <div class="chat-layout page-anim">
-        <!-- Area Utama Ruang Obrolan -->
         <section class="chat-room-card">
-            <!-- Header Chat -->
             <div class="chat-room-header">
                 <div class="chat-room-title-wrap">
                     <div class="chat-live-badge">
@@ -22,49 +20,46 @@ include __DIR__ . '/includes/header.php';
                         <span>LIVE GLOBAL</span>
                     </div>
                     <div>
-                        <h1>Ruang Obrolan <?= APP_NAME ?></h1>
-                        <p class="chat-subtitle">Ngobrol real-time bersama seluruh anggota <?= APP_NAME ?> &middot; <span id="chatTotalCounter">Memuat...</span></p>
+                        <h1>Ruang Obrolan <?= htmlspecialchars(APP_NAME) ?></h1>
+                        <p class="chat-subtitle">Diskusi real-time seluruh anggota &middot; <span id="chatTotalCounter">Memuat...</span></p>
                     </div>
                 </div>
                 <div class="chat-room-controls">
-                    <button type="button" id="soundToggleBtn" class="btn btn-outline btn-sm" title="Aktifkan/Matikan Suara Notifikasi">
-                        <span id="soundIcon">🔔</span> <span class="hide-sm">Suara</span>
+                    <button type="button" id="soundToggleBtn" class="btn btn-outline btn-sm" title="Suara Notifikasi">
+                        <span id="soundIcon">Suara: ON</span>
                     </button>
                     <?php if ($user && $user['role'] === 'admin'): ?>
-                    <button type="button" id="clearAllChatBtn" class="btn btn-outline btn-sm" style="border-color:rgba(244,63,94,0.45);color:#fda4af;" title="Bersihkan Semua Pesan">
-                        🗑 <span class="hide-sm">Bersihkan</span>
+                    <button type="button" id="clearAllChatBtn" class="btn btn-outline btn-sm" style="border-color:rgba(244,63,94,0.45);color:#fda4af !important;" title="Bersihkan Semua Pesan">
+                        <?= svgIcon('trash', 14) ?> <span class="hide-sm">Bersihkan</span>
                     </button>
                     <?php endif; ?>
-                    <button type="button" id="scrollBottomBtn" class="btn btn-ghost btn-sm" title="Gulir ke pesan terbaru">
+                    <button type="button" id="scrollBottomBtn" class="btn btn-ghost btn-sm" title="Gulir ke terbaru">
                         &darr; Terbaru
                     </button>
                 </div>
             </div>
 
-            <!-- Daftar Pesan -->
             <div class="chat-messages-viewport" id="chatViewport">
                 <div class="chat-welcome-banner">
-                    <div class="chat-welcome-icon">💬</div>
+                    <span style="color:var(--primary-light);"><?= svgIcon('shield', 20) ?></span>
                     <div>
-                        <strong>Selamat datang di Global Live Chat <?= APP_NAME ?>!</strong>
-                        <p>Jaga kesopanan, saling menghargai, dan bagikan ide atau obrolan seru bersama teman-teman kelas.</p>
+                        <strong style="color:var(--dark);display:block;">Selamat datang di Global Live Chat <?= htmlspecialchars(APP_NAME) ?></strong>
+                        <span>Gunakan bahasa yang sopan, saling mendukung, dan diskusikan proyek atau kegiatan kelas secara positif.</span>
                     </div>
                 </div>
                 <div id="chatMessagesList" class="chat-messages-list">
-                    <div class="chat-loading-state">Memuat obrolan langsung...</div>
+                    <div class="empty-state" style="padding:2rem;">Memuat percakapan langsung...</div>
                 </div>
             </div>
 
-            <!-- Preview Balasan (Reply Banner) -->
             <div id="chatReplyBanner" class="chat-reply-banner" style="display:none;">
-                <div class="chat-reply-info">
-                    <span class="reply-badge">Membalas <strong id="replyTargetUser"></strong>:</span>
-                    <span id="replyTargetText" class="reply-snippet"></span>
+                <div>
+                    <span>Membalas <strong id="replyTargetUser" style="color:var(--dark);"></strong>:</span>
+                    <span id="replyTargetText" style="color:var(--text-soft);margin-left:0.3rem;"></span>
                 </div>
                 <button type="button" id="cancelReplyBtn" class="chat-reply-close" title="Batal membalas">&times;</button>
             </div>
 
-            <!-- Bar Emoji Cepat & Input Pesan -->
             <?php if ($user): ?>
             <div class="chat-composer-wrap">
                 <div class="chat-emoji-bar">
@@ -75,39 +70,34 @@ include __DIR__ . '/includes/header.php';
                 </div>
                 <form id="chatSendForm" class="chat-composer" data-no-loading>
                     <input type="hidden" id="chatReplyToId" name="reply_to_id" value="">
-                    <textarea id="chatInput" name="message" rows="1" maxlength="600" placeholder="Ketik pesan ke Global Chat... (Tekan Enter untuk kirim, Shift+Enter baris baru)" required></textarea>
-                    <button type="submit" id="chatSendBtn" class="btn btn-primary chat-send-btn">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    <textarea id="chatInput" name="message" rows="1" maxlength="600" placeholder="Ketik pesan ke Global Chat... (Enter untuk kirim, Shift+Enter baris baru)" required></textarea>
+                    <button type="submit" id="chatSendBtn" class="btn btn-primary">
                         <span>Kirim</span>
+                        <?= svgIcon('arrow-right', 16) ?>
                     </button>
                 </form>
             </div>
             <?php else: ?>
             <div class="chat-guest-bar">
                 <div>
-                    <strong>Ingin ikut mengobrol secara langsung?</strong>
-                    <p>Masuk atau daftar akun gratis untuk mengirim pesan di Global Live Chat.</p>
+                    <strong style="color:var(--dark);display:block;">Ingin ikut berdiskusi secara langsung?</strong>
+                    <span class="admin-hint">Masuk ke akun anggota untuk mengirim dan membalas pesan di ruang obrolan.</span>
                 </div>
-                <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
-                    <a href="login.php?r=chat.php" class="btn btn-primary btn-sm">Masuk Akun</a>
-                    <a href="register.php" class="btn btn-outline btn-sm">Daftar Baru</a>
+                <div style="display:flex;gap:0.55rem;">
+                    <a href="login.php?r=chat.php" class="btn btn-primary btn-sm" data-no-transition>Masuk Akun</a>
+                    <a href="register.php" class="btn btn-outline btn-sm" data-no-transition>Daftar</a>
                 </div>
             </div>
             <?php endif; ?>
         </section>
 
-        <!-- Sidebar Anggota Aktif -->
         <aside class="chat-sidebar-card">
             <div class="chat-sidebar-head">
-                <h2>
-                    <span class="status-dot online"></span>
-                    Anggota <?= APP_NAME ?>
-                </h2>
-                <span class="online-pill" id="onlineCountBadge">1 Online</span>
+                <h2><?= svgIcon('users', 16) ?> Anggota Komunitas</h2>
+                <span class="role-badge btn-success" id="onlineCountBadge">1 Online</span>
             </div>
-            <p class="admin-hint" style="margin-bottom:1rem;">Daftar anggota terdaftar dan status keaktifan langsung.</p>
-            <div id="chatMembersList" class="chat-members-list">
-                <!-- Diisi via AJAX -->
+            <div class="chat-members-list" id="chatMembersList">
+                <div class="admin-hint" style="text-align:center;padding:1.5rem 0;">Memuat daftar anggota...</div>
             </div>
         </aside>
     </div>
@@ -115,38 +105,43 @@ include __DIR__ . '/includes/header.php';
 
 <script>
 (function() {
-    const messagesList = document.getElementById('chatMessagesList');
-    const viewport = document.getElementById('chatViewport');
-    const membersList = document.getElementById('chatMembersList');
-    const onlineBadge = document.getElementById('onlineCountBadge');
-    const totalCounter = document.getElementById('chatTotalCounter');
-    const sendForm = document.getElementById('chatSendForm');
-    const chatInput = document.getElementById('chatInput');
-    const replyBanner = document.getElementById('chatReplyBanner');
-    const replyToInput = document.getElementById('chatReplyToId');
-    const replyUserEl = document.getElementById('replyTargetUser');
-    const replyTextEl = document.getElementById('replyTargetText');
-    const cancelReplyBtn = document.getElementById('cancelReplyBtn');
-    const soundToggleBtn = document.getElementById('soundToggleBtn');
-    const soundIcon = document.getElementById('soundIcon');
+    const messagesList    = document.getElementById('chatMessagesList');
+    const viewport        = document.getElementById('chatViewport');
+    const membersList     = document.getElementById('chatMembersList');
+    const onlineBadge     = document.getElementById('onlineCountBadge');
+    const totalCounter    = document.getElementById('chatTotalCounter');
+    const sendForm        = document.getElementById('chatSendForm');
+    const chatInput       = document.getElementById('chatInput');
+    const replyBanner     = document.getElementById('chatReplyBanner');
+    const replyToInput    = document.getElementById('chatReplyToId');
+    const replyUserEl     = document.getElementById('replyTargetUser');
+    const replyTextEl     = document.getElementById('replyTargetText');
+    const cancelReplyBtn  = document.getElementById('cancelReplyBtn');
+    const soundToggleBtn  = document.getElementById('soundToggleBtn');
+    const soundIcon       = document.getElementById('soundIcon');
     const scrollBottomBtn = document.getElementById('scrollBottomBtn');
-    const clearAllBtn = document.getElementById('clearAllChatBtn');
+    const clearAllBtn     = document.getElementById('clearAllChatBtn');
+
+    if (!messagesList) return;
 
     let lastMessageId = 0;
-    let isFirstLoad = true;
-    let soundEnabled = localStorage.getItem('xitkj1_chat_sound') !== 'off';
-    let isFetching = false;
+    let isFirstLoad   = true;
+    let isFetching    = false;
+    let soundEnabled  = localStorage.getItem('vinstudio_chat_sound') !== 'off';
+
+    function getToken() {
+        return window.getCsrfToken ? window.getCsrfToken() : '';
+    }
 
     function updateSoundUI() {
-        if (!soundIcon) return;
-        soundIcon.textContent = soundEnabled ? '🔔' : '🔕';
+        if (soundIcon) soundIcon.textContent = soundEnabled ? 'Suara: ON' : 'Suara: OFF';
     }
     updateSoundUI();
 
     if (soundToggleBtn) {
         soundToggleBtn.addEventListener('click', function() {
             soundEnabled = !soundEnabled;
-            localStorage.setItem('xitkj1_chat_sound', soundEnabled ? 'on' : 'off');
+            localStorage.setItem('vinstudio_chat_sound', soundEnabled ? 'on' : 'off');
             updateSoundUI();
         });
     }
@@ -158,9 +153,9 @@ include __DIR__ . '/includes/header.php';
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(587.33, ctx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.08);
-            gain.gain.setValueAtTime(0.08, ctx.currentTime);
+            osc.frequency.setValueAtTime(580, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(860, ctx.currentTime + 0.08);
+            gain.gain.setValueAtTime(0.06, ctx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.14);
             osc.connect(gain);
             gain.connect(ctx.destination);
@@ -169,9 +164,9 @@ include __DIR__ . '/includes/header.php';
         } catch (e) {}
     }
 
-    function escapeHtml(str) {
+    function escapeHtml(s) {
         const div = document.createElement('div');
-        div.textContent = str == null ? '' : String(str);
+        div.textContent = s == null ? '' : String(s);
         return div.innerHTML;
     }
 
@@ -182,16 +177,11 @@ include __DIR__ . '/includes/header.php';
 
     function scrollToBottom(smooth) {
         if (!viewport) return;
-        viewport.scrollTo({
-            top: viewport.scrollHeight,
-            behavior: smooth ? 'smooth' : 'auto'
-        });
+        viewport.scrollTo({ top: viewport.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
     }
 
     if (scrollBottomBtn) {
-        scrollBottomBtn.addEventListener('click', function() {
-            scrollToBottom(true);
-        });
+        scrollBottomBtn.addEventListener('click', () => scrollToBottom(true));
     }
 
     function setReply(id, user, text) {
@@ -208,19 +198,15 @@ include __DIR__ . '/includes/header.php';
         replyToInput.value = '';
         replyBanner.style.display = 'none';
     }
-
-    if (cancelReplyBtn) {
-        cancelReplyBtn.addEventListener('click', clearReply);
-    }
+    if (cancelReplyBtn) cancelReplyBtn.addEventListener('click', clearReply);
 
     function showEmptyIfNeeded() {
-        if (!messagesList) return;
         const items = messagesList.querySelectorAll('.chat-msg-item');
-        const existingEmpty = messagesList.querySelector('.empty-state');
-        if (items.length === 0 && !existingEmpty) {
+        const empty = messagesList.querySelector('.empty-state');
+        if (items.length === 0 && !empty) {
             messagesList.innerHTML = '<div class="empty-state" style="padding:2rem;">Belum ada obrolan. Mulailah menyapa teman-teman!</div>';
-        } else if (items.length > 0 && existingEmpty) {
-            existingEmpty.remove();
+        } else if (items.length > 0 && empty) {
+            empty.remove();
         }
     }
 
@@ -231,35 +217,35 @@ include __DIR__ . '/includes/header.php';
         item.dataset.id = m.id;
 
         const roleBadge = m.role === 'admin'
-            ? '<span class="role-badge role-admin" style="font-size:0.63rem;padding:0.12rem 0.45rem;">Admin</span>'
+            ? '<span class="role-badge role-admin" style="font-size:0.62rem;padding:0.1rem 0.42rem;">Admin</span>'
             : '';
 
         const replyHtml = m.reply_to_id && m.reply_user
             ? `<div class="chat-quoted-reply">
-                   <span class="quote-author">↩ ${escapeHtml(m.reply_user)}</span>
-                   <span class="quote-text">${escapeHtml(m.reply_text || '')}</span>
+                   <strong style="font-size:0.72rem;">↩ ${escapeHtml(m.reply_user)}</strong>
+                   <span>${escapeHtml(m.reply_text || '')}</span>
                </div>`
             : '';
 
         const deleteBtn = m.can_delete
-            ? `<button type="button" class="chat-action-btn delete" data-del-id="${m.id}" title="Hapus pesan">🗑 Hapus</button>`
+            ? `<button type="button" class="chat-action-btn delete" data-del-id="${m.id}">Hapus</button>`
             : '';
 
         const replyBtn = <?= $user ? 'true' : 'false' ?>
-            ? `<button type="button" class="chat-action-btn reply" data-reply-id="${m.id}" data-reply-user="${escapeHtml(m.display_name)}" data-reply-text="${escapeHtml(m.message)}" title="Balas pesan">↩ Balas</button>`
+            ? `<button type="button" class="chat-action-btn reply" data-reply-id="${m.id}" data-reply-user="${escapeHtml(m.display_name)}" data-reply-text="${escapeHtml(m.message)}">↩ Balas</button>`
             : '';
 
         const avatarHtml = m.avatar
-            ? `<img src="uploads/${escapeHtml(m.avatar)}" class="user-avatar-img chat-msg-avatar" alt="${escapeHtml(m.display_name)}">`
+            ? `<img src="uploads/${escapeHtml(m.avatar)}" class="user-avatar-img chat-msg-avatar" alt="">`
             : `<div class="user-avatar ${escapeHtml(m.avatar_class)} chat-msg-avatar">${escapeHtml(m.initials)}</div>`;
 
         item.innerHTML = `
             ${avatarHtml}
             <div class="chat-msg-bubble-wrap">
                 <div class="chat-msg-meta">
-                    <strong class="chat-msg-author">${escapeHtml(m.display_name)}</strong>
+                    <a href="profile.php?member=${m.user_id}" class="chat-msg-author">${escapeHtml(m.display_name)}</a>
                     ${roleBadge}
-                    <span class="chat-msg-time" title="${escapeHtml(m.created_at)}">${escapeHtml(m.time_clock)} &middot; ${escapeHtml(m.time_ago)}</span>
+                    <span class="chat-msg-time">${escapeHtml(m.time_clock)} &middot; ${escapeHtml(m.time_ago)}</span>
                 </div>
                 <div class="chat-msg-bubble">
                     ${replyHtml}
@@ -278,22 +264,21 @@ include __DIR__ . '/includes/header.php';
         if (onlineBadge) onlineBadge.textContent = onlineCount + ' Online';
         if (!membersList || !Array.isArray(members)) return;
         membersList.innerHTML = members.map(function(u) {
-            const memAvatarHtml = u.avatar
-                ? `<img src="uploads/${escapeHtml(u.avatar)}" class="user-avatar-img" style="width:36px;height:36px;" alt="${escapeHtml(u.display_name)}">`
-                : `<div class="user-avatar ${escapeHtml(u.avatar_class)}" style="width:36px;height:36px;font-size:0.8rem;">${escapeHtml(u.initials)}</div>`;
-
+            const av = u.avatar
+                ? `<img src="uploads/${escapeHtml(u.avatar)}" class="user-avatar-img" style="width:34px;height:34px;" alt="">`
+                : `<div class="user-avatar ${escapeHtml(u.avatar_class)}" style="width:34px;height:34px;font-size:0.76rem;">${escapeHtml(u.initials)}</div>`;
             return `
-                <div class="chat-member-row">
-                    ${memAvatarHtml}
+                <a href="profile.php?member=${u.id}" class="chat-member-row" style="text-decoration:none;color:inherit;">
+                    ${av}
                     <div class="chat-member-info">
                         <div class="chat-member-name">
                             <span>${escapeHtml(u.display_name)}</span>
-                            ${u.role === 'admin' ? '<span class="role-badge role-admin" style="font-size:0.6rem;padding:0.1rem 0.4rem;">Admin</span>' : ''}
+                            ${u.role === 'admin' ? '<span class="role-badge role-admin" style="font-size:0.58rem;padding:0.08rem 0.38rem;">Admin</span>' : ''}
                         </div>
-                        <small>${u.online ? 'Sedang aktif' : escapeHtml(u.last_seen)}</small>
+                        <small>${u.online ? 'Sedang online' : escapeHtml(u.last_seen)}</small>
                     </div>
-                    <span class="status-dot ${u.online ? 'online' : 'offline'}" title="${u.online ? 'Online' : 'Offline'}"></span>
-                </div>
+                    <span class="status-dot ${u.online ? 'online' : 'offline'}"></span>
+                </a>
             `;
         }).join('');
     }
@@ -307,53 +292,34 @@ include __DIR__ . '/includes/header.php';
         if (isFetching) return;
         isFetching = true;
         try {
-            const url = 'chat-api.php?action=fetch&after_id=' + lastMessageId + '&_t=' + Date.now();
-            const res = await fetch(url, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
+            const res  = await fetch('chat-api.php?action=fetch&after_id=' + lastMessageId + '&_t=' + Date.now(), { cache: 'no-store' });
             const data = await res.json();
             if (!data || !data.ok) return;
 
-            if (totalCounter) {
-                totalCounter.textContent = data.total_messages + ' pesan terkirim';
-            }
+            if (totalCounter) totalCounter.textContent = data.total_messages + ' pesan terkirim';
             renderMembers(data.members, data.online_count);
 
-            const stickToBottom = isFirstLoad || isNearBottom();
+            const stick = isFirstLoad || isNearBottom();
+            if (isFirstLoad) messagesList.innerHTML = '';
 
-            if (isFirstLoad) {
-                messagesList.innerHTML = '';
-            }
-
-            // Sinkronisasi pesan yang sudah dihapus di server agar langsung hilang dari layar
             if (Array.isArray(data.active_ids)) {
                 const activeSet = new Set(data.active_ids.map(Number));
-                messagesList.querySelectorAll('.chat-msg-item').forEach(function(el) {
-                    const idNum = Number(el.dataset.id);
-                    if (!activeSet.has(idNum)) {
-                        el.remove();
-                    }
+                messagesList.querySelectorAll('.chat-msg-item').forEach(el => {
+                    if (!activeSet.has(Number(el.dataset.id))) el.remove();
                 });
             }
 
             if (Array.isArray(data.messages) && data.messages.length > 0) {
                 let hasForeignNew = false;
                 data.messages.forEach(function(m) {
-                    if (m.id > lastMessageId) {
-                        lastMessageId = m.id;
-                    }
+                    if (m.id > lastMessageId) lastMessageId = m.id;
                     if (!document.getElementById('chat-msg-' + m.id)) {
                         messagesList.appendChild(buildMessageElement(m));
-                        if (!isFirstLoad && !m.is_mine) {
-                            hasForeignNew = true;
-                        }
+                        if (!isFirstLoad && !m.is_mine) hasForeignNew = true;
                     }
                 });
-
-                if (stickToBottom) {
-                    scrollToBottom(!isFirstLoad);
-                }
-                if (hasForeignNew) {
-                    playNotificationPop();
-                }
+                if (stick) scrollToBottom(!isFirstLoad);
+                if (hasForeignNew) playNotificationPop();
             }
 
             showEmptyIfNeeded();
@@ -364,73 +330,64 @@ include __DIR__ . '/includes/header.php';
         }
     }
 
-    // Delegasi tombol Reply dan Delete pada pesan
-    if (messagesList) {
-        messagesList.addEventListener('click', async function(e) {
-            const replyBtn = e.target.closest('[data-reply-id]');
-            if (replyBtn) {
-                setReply(
-                    replyBtn.getAttribute('data-reply-id'),
-                    replyBtn.getAttribute('data-reply-user'),
-                    replyBtn.getAttribute('data-reply-text')
-                );
-                return;
-            }
+    messagesList.addEventListener('click', async function(e) {
+        const replyBtn = e.target.closest('[data-reply-id]');
+        if (replyBtn) {
+            setReply(replyBtn.dataset.replyId, replyBtn.dataset.replyUser, replyBtn.dataset.replyText);
+            return;
+        }
 
-            const delBtn = e.target.closest('[data-del-id]');
-            if (delBtn) {
-                const id = delBtn.getAttribute('data-del-id');
-                const row = document.getElementById('chat-msg-' + id);
-                if (row) {
-                    row.style.opacity = '0.35';
-                    row.style.transform = 'scale(0.96)';
+        const delBtn = e.target.closest('[data-del-id]');
+        if (delBtn) {
+            const id  = delBtn.dataset.delId;
+            const row = document.getElementById('chat-msg-' + id);
+            if (row) row.style.opacity = '0.35';
+            const token = getToken();
+            const fd = new FormData();
+            fd.append('action', 'delete');
+            fd.append('id', id);
+            fd.append('csrf_token', token);
+            try {
+                const res  = await fetch('chat-api.php', { method: 'POST', headers: { 'X-CSRF-Token': token }, body: fd });
+                const data = await res.json();
+                if (data && data.ok) {
+                    if (row) row.remove();
+                    showEmptyIfNeeded();
+                    if (window.showToast) window.showToast('Pesan berhasil dihapus.', 'success');
                 }
-                const fd = new FormData();
-                fd.append('action', 'delete');
-                fd.append('id', id);
-                try {
-                    const res = await fetch('chat-api.php', { method: 'POST', body: fd });
-                    const data = await res.json();
-                    if (data && data.ok) {
-                        if (row) row.remove();
-                        showEmptyIfNeeded();
-                        if (window.showToast) window.showToast('Pesan berhasil dihapus.', 'success');
-                        fetchMessages();
-                    }
-                } catch (e) {}
-            }
-        });
-    }
+            } catch (e) {}
+        }
+    });
 
     if (clearAllBtn) {
         clearAllBtn.addEventListener('click', async function() {
-            if (!confirm('Bersihkan seluruh riwayat pesan di Global Live Chat?')) return;
+            if (!confirm('Kosongkan seluruh riwayat pesan di Global Live Chat?')) return;
+            const token = getToken();
             const fd = new FormData();
             fd.append('action', 'clear_all');
+            fd.append('csrf_token', token);
             try {
-                const res = await fetch('chat-api.php', { method: 'POST', body: fd });
+                const res  = await fetch('chat-api.php', { method: 'POST', headers: { 'X-CSRF-Token': token }, body: fd });
                 const data = await res.json();
                 if (data && data.ok) {
                     messagesList.innerHTML = '';
                     lastMessageId = 0;
                     showEmptyIfNeeded();
                     if (totalCounter) totalCounter.textContent = '0 pesan terkirim';
-                    if (window.showToast) window.showToast('Seluruh pesan chat telah dibersihkan.', 'success');
+                    if (window.showToast) window.showToast('Ruang obrolan telah dibersihkan.', 'success');
                 }
             } catch (e) {}
         });
     }
 
-    // Emoji cepat
-    document.querySelectorAll('.emoji-chip').forEach(function(chip) {
+    document.querySelectorAll('.emoji-chip').forEach(chip => {
         chip.addEventListener('click', function() {
             if (!chatInput) return;
-            chatInput.value += chip.getAttribute('data-emoji');
+            chatInput.value += chip.dataset.emoji;
             chatInput.focus();
         });
     });
 
-    // Kirim pesan dengan Enter (Shift+Enter untuk baris baru)
     if (chatInput && sendForm) {
         chatInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -447,9 +404,11 @@ include __DIR__ . '/includes/header.php';
             const btn = document.getElementById('chatSendBtn');
             if (btn) btn.disabled = true;
 
+            const token = getToken();
             const fd = new FormData();
             fd.append('action', 'send');
             fd.append('message', text);
+            fd.append('csrf_token', token);
             if (replyToInput && replyToInput.value) {
                 fd.append('reply_to_id', replyToInput.value);
             }
@@ -458,7 +417,7 @@ include __DIR__ . '/includes/header.php';
             clearReply();
 
             try {
-                const res = await fetch('chat-api.php', { method: 'POST', body: fd });
+                const res  = await fetch('chat-api.php', { method: 'POST', headers: { 'X-CSRF-Token': token }, body: fd });
                 const data = await res.json();
                 if (data && data.ok && data.message) {
                     const m = data.message;
@@ -469,12 +428,11 @@ include __DIR__ . '/includes/header.php';
                         messagesList.appendChild(buildMessageElement(m));
                     }
                     scrollToBottom(true);
-                    fetchMessages();
                 } else if (data && data.error) {
-                    alert(data.error);
+                    if (window.showToast) window.showToast(data.error, 'error');
                 }
             } catch (err) {
-                alert('Gagal mengirim pesan. Periksa koneksi internet kamu.');
+                if (window.showToast) window.showToast('Gagal mengirim pesan.', 'error');
             } finally {
                 if (btn) btn.disabled = false;
                 chatInput.focus();

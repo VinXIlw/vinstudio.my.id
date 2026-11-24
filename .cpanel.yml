@@ -2,4 +2,16 @@
 deployment:
   tasks:
     - export DEPLOYPATH=/home/xhgacmku/public_html/
-    - /bin/cp -R * $DEPLOYPATH
+    - /bin/mkdir -p $DEPLOYPATH/css $DEPLOYPATH/js $DEPLOYPATH/img $DEPLOYPATH/includes $DEPLOYPATH/uploads $DEPLOYPATH/storage
+    - /bin/cp -f *.php $DEPLOYPATH/
+    - /bin/cp -f .htaccess $DEPLOYPATH/.htaccess
+    - /bin/cp -Rf css/* $DEPLOYPATH/css/
+    - /bin/cp -Rf js/* $DEPLOYPATH/js/
+    - /bin/cp -Rf img/* $DEPLOYPATH/img/
+    - /bin/cp -Rf includes/* $DEPLOYPATH/includes/
+    - /bin/cp -f includes/.htaccess $DEPLOYPATH/includes/.htaccess
+    - /bin/cp -f uploads/.htaccess $DEPLOYPATH/uploads/.htaccess
+    - /bin/cp -f uploads/index.php $DEPLOYPATH/uploads/index.php
+    - /bin/cp -f storage/.htaccess $DEPLOYPATH/storage/.htaccess
+    - /bin/cp -f storage/index.php $DEPLOYPATH/storage/index.php
+    - /bin/chmod 755 $DEPLOYPATH/uploads $DEPLOYPATH/storage $DEPLOYPATH/includes

@@ -1,22 +1,14 @@
 <?php
 require_once __DIR__ . '/config.php';
-$pageTitle = 'Akses Ditolak';
+$pageTitle = 'Akses Ditolak (403)';
 include __DIR__ . '/includes/header.php';
 ?>
-
 <main>
-    <section class="profile-detail page-anim">
-        <div class="container" style="padding:3rem 1rem;">
-            <div class="empty-state">
-                <h1 style="font-size:3.5rem;margin-bottom:0.5rem;">🚫</h1>
-                <h2 style="color:var(--dark);margin-bottom:0.5rem;">Akses Ditolak (403)</h2>
-                <p>Halaman ini hanya dapat diakses oleh akun Administrator.</p>
-                <p style="margin-top:1.5rem;">
-                    <a href="index.php" class="btn btn-primary">Kembali ke Beranda</a>
-                </p>
-            </div>
-        </div>
-    </section>
+    <div class="empty-state page-anim" style="max-width:580px;margin:3rem auto;padding:3.2rem 2rem;">
+        <div style="color:var(--danger);margin-bottom:0.85rem;"><?= svgIcon('lock', 46) ?></div>
+        <h1 style="font-size:1.75rem;color:var(--dark);margin-bottom:0.5rem;">Akses Terbatas (403)</h1>
+        <p style="margin-bottom:1.6rem;">Halaman ini dilindungi dan hanya dapat diakses oleh akun dengan otorisasi Administrator.</p>
+        <a href="index.php" class="btn btn-primary"><?= svgIcon('arrow-left', 16) ?> Kembali ke Beranda</a>
+    </div>
 </main>
-
 <?php include __DIR__ . '/includes/footer.php'; ?>

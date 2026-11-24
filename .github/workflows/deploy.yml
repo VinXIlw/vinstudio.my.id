@@ -18,22 +18,20 @@ jobs:
           exclude: |
             **/.git*
             **/.git*/**
+            **/.cpanel.yml
+            **/README.md
             **/node_modules/**
-            **/views/**
             **/*.db
             **/*.sqlite
+            **/*.sqlite3
+            **/*.sql
             **/*.log
             **/*.err
             **/.env*
-            **/*test*
-            **/cleanup*
-            **/setup*
-            **/run-*
-            **/verify-*
-            **/package*.json
-            **/server.js
-            **/admin-routes.js
-            **/db-migrate.js
-            **/profile-sync.js
-            **/make-admin.js
-            **/edit-profile.js
+            **/storage/*.sqlite
+            **/storage/*.db
+            **/storage/.vault_*
+            **/uploads/avatar-*
+            **/uploads/photo-*
+            **/uploads/profile-*
+            **/uploads/banner-*

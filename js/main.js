@@ -1,13 +1,11 @@
 /*
-  XI TKJ 1 Digital Hub — Main Interactive JavaScript (v5.0 Instant PJAX & Smooth Glider)
+  XI TKJ 1 Digital Hub — Enterprise Interactive Engine (v6.0)
   Fitur:
-    - Continuous Sliding Button Glider (Navbar, Sort Pills Terbaru/Terpopuler, & Tab)
-    - Instant PJAX / Turbo Navigation + Hover & Warm Prefetch (pindah halaman instan 0ms delay)
-    - Directional Slide Page Transition (geser kanan/kiri sesuai urutan tombol)
-    - Dark / Light Mode Toggle dengan persistensi localStorage
-    - Floating Mini Global Live Chat Drawer (dengan fitur Hapus & Live Sync)
-    - Lightbox Zoom Gambar Resolusi Tinggi
-    - Copy Link Share & Toast Notifikasi
+    - Continuous Sliding Glider (Navbar, Segmented Sort, & Panel Tabs)
+    - Instant PJAX / Turbo Router + Hover & Warm Prefetch (0ms perceived navigation)
+    - Instant AJAX Like Toggle dengan proteksi CSRF & animasi Heart Pop
+    - Instant Combined Search + Category Chip + Sort Filter di sisi klien
+    - Secure CSRF-protected Floating Mini Live Chat Drawer
 */
 (function () {
     'use strict';
@@ -17,35 +15,40 @@
 
     window.__pjaxCleanupFns = window.__pjaxCleanupFns || [];
 
+    function getCsrfToken() {
+        const meta = $('meta[name="csrf-token"]');
+        return meta ? meta.getAttribute('content') || '' : '';
+    }
+    window.getCsrfToken = getCsrfToken;
+
     let syncNavToUrl = null;
     const pjaxCache = new Map();
-    const PJAX_TTL = 25000; // 25 detik cache prefetch
+    const PJAX_TTL = 25000;
 
     window.clearPjaxCache = function () {
         pjaxCache.clear();
     };
 
     document.addEventListener('DOMContentLoaded', function () {
-        // Inisialisasi global sekali jalan (Header, Footer, Router, Delegasi Event)
         initThemeToggle();
         initProgressBar();
         initMobileMenu();
         initNavGlider();
         initPjaxRouter();
+        initAjaxLikes();
         initModals();
         initRipple();
         initLightbox();
         initShareButtons();
         initFloatingChat();
 
-        // Inisialisasi elemen konten di dalam halaman aktif (#pjaxStage)
         initPageContent(document);
     });
 
     function initPageContent(ctx) {
         initReveal(ctx);
         initTabs(ctx);
-        initSortGlider(ctx);
+        initSortAndFilter(ctx);
         initFormUX(ctx);
         initTableTools(ctx);
         initToasts(ctx);
@@ -59,20 +62,16 @@
     function initThemeToggle() {
         const btn = $('#themeToggle');
         if (!btn) return;
-
         btn.addEventListener('click', function () {
             const root = document.documentElement;
-            const current = root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-            const next = current === 'dark' ? 'light' : 'dark';
+            const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
             root.setAttribute('data-theme', next);
-            try {
-                localStorage.setItem('vinstudio_theme', next);
-            } catch (e) {}
+            try { localStorage.setItem('vinstudio_theme', next); } catch (e) {}
         });
     }
 
     /* ---------------------------------------------------------
-       Progress bar navigasi
+       Top Progress Bar
     --------------------------------------------------------- */
     function initProgressBar() {
         if ($('.page-progress')) return;
@@ -80,29 +79,23 @@
         bar.className = 'page-progress';
         document.body.appendChild(bar);
     }
-
     function startProgress() {
         const bar = $('.page-progress');
-        if (!bar) return;
-        bar.classList.remove('done');
-        bar.classList.add('active');
+        if (bar) { bar.classList.remove('done'); bar.classList.add('active'); }
     }
-
     function finishProgress() {
         const bar = $('.page-progress');
         if (!bar) return;
         bar.classList.add('active', 'done');
-        setTimeout(function () {
-            bar.classList.remove('active', 'done');
-        }, 280);
+        setTimeout(() => bar.classList.remove('active', 'done'), 280);
     }
 
     /* ---------------------------------------------------------
-       Mobile menu
+       Mobile Menu
     --------------------------------------------------------- */
     function initMobileMenu() {
         const menuBtn = $('.mobile-menu-btn');
-        const navUl = $('.main-nav ul');
+        const navUl   = $('.main-nav ul');
         if (!menuBtn || !navUl) return;
 
         menuBtn.addEventListener('click', function (e) {
@@ -110,7 +103,6 @@
             navUl.classList.toggle('active');
             menuBtn.classList.toggle('active');
         });
-
         document.addEventListener('click', function (e) {
             if (!navUl.contains(e.target) && !menuBtn.contains(e.target)) {
                 navUl.classList.remove('active');
@@ -120,22 +112,19 @@
     }
 
     /* ---------------------------------------------------------
-       Continuous Sliding Button Glider di Navbar
-       (Tidak pernah hilang/reset, langsung geser mulus ke sebelah)
+       Continuous Sliding Navbar Glider
     --------------------------------------------------------- */
     function initNavGlider() {
         const navUl = $('.main-nav ul');
         if (!navUl) return;
 
-        const links = $$('li > a:not(.btn-logout)', navUl);
+        const links = $$('li > a', navUl);
         if (!links.length) return;
 
-        // Buat Hover Glider (bayangan kapsul halus saat kursor melintas)
         const hoverGlider = document.createElement('span');
         hoverGlider.className = 'nav-hover-glider';
         navUl.appendChild(hoverGlider);
 
-        // Buat Active Glider (kapsul gradien utama yang bergeser antar tombol)
         const glider = document.createElement('span');
         glider.className = 'nav-glider';
         navUl.appendChild(glider);
@@ -152,7 +141,7 @@
         }
 
         function applyGlider(el, animate) {
-            if (!el || window.innerWidth <= 768) {
+            if (!el || window.innerWidth <= 820) {
                 glider.style.opacity = '0';
                 return;
             }
@@ -165,16 +154,14 @@
                 glider.style.transition = '';
                 glider.classList.add('is-moving');
                 if (movingTimer) clearTimeout(movingTimer);
-                movingTimer = setTimeout(function () {
-                    glider.classList.remove('is-moving');
-                }, 440);
+                movingTimer = setTimeout(() => glider.classList.remove('is-moving'), 430);
             }
 
             glider.classList.toggle('is-chat', el.classList.contains('nav-chat-link'));
-            glider.style.width = m.w + 'px';
-            glider.style.height = m.h + 'px';
+            glider.style.width     = m.w + 'px';
+            glider.style.height    = m.h + 'px';
             glider.style.transform = `translate3d(${m.x}px, ${m.y}px, 0)`;
-            glider.style.opacity = '1';
+            glider.style.opacity   = '1';
 
             if (!animate) {
                 void glider.offsetWidth;
@@ -182,56 +169,48 @@
             }
         }
 
-        // Hover glider saat mouse diarahkan ke tombol navbar
         links.forEach(function (link) {
             link.addEventListener('mouseenter', function () {
-                if (window.innerWidth <= 768) return;
+                if (window.innerWidth <= 820) return;
                 const m = getMetrics(link);
-                hoverGlider.style.width = m.w + 'px';
-                hoverGlider.style.height = m.h + 'px';
+                hoverGlider.style.width     = m.w + 'px';
+                hoverGlider.style.height    = m.h + 'px';
                 hoverGlider.style.transform = `translate3d(${m.x}px, ${m.y}px, 0)`;
-                hoverGlider.style.opacity = '1';
+                hoverGlider.style.opacity   = '1';
             });
         });
         navUl.addEventListener('mouseleave', function () {
             hoverGlider.style.opacity = '0';
         });
 
-        // Posisikan glider di tombol aktif saat pertama kali buka, baru aktifkan .has-glider
-        let activeLink = links.find(l => l.classList.contains('active'));
-        if (!activeLink) {
-            activeLink = findMatchingNavLink(window.location.href, links);
-            if (activeLink) activeLink.classList.add('active');
-        }
-        if (activeLink) {
-            applyGlider(activeLink, false);
-        }
-        navUl.classList.add('has-glider');
-
-        function findMatchingNavLink(urlStr, linkList) {
+        function findMatchingNavLink(urlStr) {
             try {
                 const u = new URL(urlStr, window.location.origin);
                 let file = u.pathname.split('/').pop() || 'index.php';
                 if (file === '' || file === '/') file = 'index.php';
 
-                // Pemetaan halaman detail/tambah ke menu induknya di navbar
                 if (file === 'album-detail.php' || file === 'album-add.php') file = 'albums.php';
                 if (file === 'story-detail.php' || file === 'story-add.php') file = 'stories.php';
+                if (file === 'admin-logs.php') file = 'admin.php';
 
-                return linkList.find(function (a) {
-                    const href = (a.getAttribute('href') || '').split('?')[0];
-                    return href === file;
-                }) || null;
+                return links.find(a => (a.getAttribute('href') || '').split('?')[0] === file) || null;
             } catch (e) {
                 return null;
             }
         }
 
+        let activeLink = links.find(l => l.classList.contains('active')) || findMatchingNavLink(window.location.href);
+        if (activeLink) {
+            activeLink.classList.add('active');
+            applyGlider(activeLink, false);
+        }
+        navUl.classList.add('has-glider');
+
         syncNavToUrl = function (urlStr, animate) {
             const prevActive = links.find(l => l.classList.contains('active'));
-            const nextActive = findMatchingNavLink(urlStr, links);
-            const prevIdx = prevActive ? links.indexOf(prevActive) : -1;
-            const nextIdx = nextActive ? links.indexOf(nextActive) : -1;
+            const nextActive = findMatchingNavLink(urlStr);
+            const prevIdx    = prevActive ? links.indexOf(prevActive) : -1;
+            const nextIdx    = nextActive ? links.indexOf(nextActive) : -1;
 
             let dir = 'fade';
             if (prevIdx !== -1 && nextIdx !== -1 && prevIdx !== nextIdx) {
@@ -243,7 +222,6 @@
                 applyGlider(nextActive, animate !== false);
             }
 
-            // Tutup menu mobile jika sedang terbuka
             const menuBtn = $('.mobile-menu-btn');
             if (navUl.classList.contains('active')) {
                 navUl.classList.remove('active');
@@ -260,10 +238,9 @@
     }
 
     /* ---------------------------------------------------------
-       Sliding Glider untuk Sort Filter (Terbaru / Terpopuler)
-       di halaman Album & Cerita — Instan 0ms tanpa reload!
+       Combined Search + Category Filter + Sliding Sort Glider
     --------------------------------------------------------- */
-    function initSortGlider(ctx) {
+    function initSortAndFilter(ctx) {
         const groups = $$('[data-sort-pills]', ctx);
         groups.forEach(function (group) {
             if (group.dataset.gliderReady === '1') return;
@@ -278,14 +255,11 @@
 
             function moveSortGlider(btn, animate) {
                 if (!btn) return;
-                if (!animate) glider.style.transition = 'none';
-                else glider.style.transition = '';
-
-                glider.style.width = btn.offsetWidth + 'px';
-                glider.style.height = btn.offsetHeight + 'px';
+                glider.style.transition = animate ? '' : 'none';
+                glider.style.width     = btn.offsetWidth + 'px';
+                glider.style.height    = btn.offsetHeight + 'px';
                 glider.style.transform = `translate3d(${btn.offsetLeft}px, ${btn.offsetTop}px, 0)`;
-                glider.style.opacity = '1';
-
+                glider.style.opacity   = '1';
                 if (!animate) {
                     void glider.offsetWidth;
                     glider.style.transition = '';
@@ -293,10 +267,57 @@
             }
 
             const initialActive = btns.find(b => b.classList.contains('active')) || btns[0];
-            if (initialActive) {
-                moveSortGlider(initialActive, false);
-            }
+            if (initialActive) moveSortGlider(initialActive, false);
             group.classList.add('has-glider');
+
+            const gridSel   = group.dataset.targetGrid;
+            const searchSel = group.dataset.searchInput;
+            const countSel  = group.dataset.countLabel;
+            const emptySel  = group.dataset.emptyState;
+            const catBarSel = group.dataset.catBar;
+
+            const grid      = gridSel ? $(gridSel) : null;
+            const searchInp = searchSel ? $(searchSel) : null;
+            const countEl   = countSel ? $(countSel) : null;
+            const emptyEl   = emptySel ? $(emptySel) : null;
+            const catBar    = catBarSel ? $(catBarSel) : null;
+            const unitLabel = group.dataset.unit || 'item';
+
+            let currentCat = 'all';
+
+            function applyFilterAndVisibility() {
+                if (!grid) return;
+                const q = searchInp ? searchInp.value.toLowerCase().trim() : '';
+                const cards = Array.from(grid.children);
+                let visible = 0;
+
+                cards.forEach(function (card) {
+                    const hay = (card.dataset.search || card.dataset.title || '').toLowerCase();
+                    const cat = (card.dataset.category || '').toLowerCase();
+                    const matchQ   = !q || hay.includes(q);
+                    const matchCat = currentCat === 'all' || cat === currentCat.toLowerCase();
+                    const show = matchQ && matchCat;
+                    card.style.display = show ? '' : 'none';
+                    if (show) visible++;
+                });
+
+                if (countEl) countEl.textContent = visible + ' ' + unitLabel;
+                if (emptyEl) emptyEl.style.display = visible === 0 ? '' : 'none';
+            }
+
+            if (searchInp) {
+                searchInp.addEventListener('input', applyFilterAndVisibility);
+            }
+
+            if (catBar) {
+                $$('[data-cat]', catBar).forEach(function (chip) {
+                    chip.addEventListener('click', function () {
+                        $$('[data-cat]', catBar).forEach(c => c.classList.toggle('active', c === chip));
+                        currentCat = chip.dataset.cat || 'all';
+                        applyFilterAndVisibility();
+                    });
+                });
+            }
 
             btns.forEach(function (btn) {
                 btn.addEventListener('click', function (e) {
@@ -307,30 +328,27 @@
                     btns.forEach(b => b.classList.toggle('active', b === btn));
                     moveSortGlider(btn, true);
 
-                    // Urutkan kartu secara instan di sisi klien (0ms!)
-                    const gridSel = group.dataset.targetGrid;
-                    const grid = gridSel ? $(gridSel) : null;
                     if (grid) {
                         const cards = Array.from(grid.children);
                         cards.sort(function (a, b) {
                             const likesA = parseInt(a.dataset.likes || '0', 10);
                             const likesB = parseInt(b.dataset.likes || '0', 10);
-                            const timeA = parseInt(a.dataset.time || '0', 10);
-                            const timeB = parseInt(b.dataset.time || '0', 10);
-                            if (sortMode === 'popular') {
-                                if (likesB !== likesA) return likesB - likesA;
+                            const timeA  = parseInt(a.dataset.time || '0', 10);
+                            const timeB  = parseInt(b.dataset.time || '0', 10);
+                            if (sortMode === 'popular' && likesB !== likesA) {
+                                return likesB - likesA;
                             }
                             return timeB - timeA;
                         });
                         cards.forEach(function (c, idx) {
                             c.style.animation = 'none';
                             void c.offsetWidth;
-                            c.style.animation = `cardEntrance 0.36s cubic-bezier(0.22, 1, 0.36, 1) ${idx * 0.035}s both`;
+                            c.style.animation = `cardEntrance 0.34s cubic-bezier(0.22, 1, 0.36, 1) ${idx * 0.03}s both`;
                             grid.appendChild(c);
                         });
+                        applyFilterAndVisibility();
                     }
 
-                    // Perbarui URL tanpa reload
                     if (window.history && window.history.replaceState) {
                         const u = new URL(btn.href, window.location.origin);
                         window.history.replaceState({ url: u.href }, '', u.href);
@@ -346,16 +364,69 @@
     }
 
     /* ---------------------------------------------------------
-       Instant PJAX / Turbo Router + Hover & Warm Prefetch
-       (Pindah halaman instan tanpa reload Header/Footer)
+       Instant AJAX Like Toggle (CSRF Protected, 0ms Reload)
+    --------------------------------------------------------- */
+    function initAjaxLikes() {
+        document.addEventListener('submit', async function (e) {
+            const form = e.target.closest('.js-like-form');
+            if (!form) return;
+            e.preventDefault();
+
+            const btn = $('.like-btn', form);
+            const countSpan = $('[data-like-count]', form);
+            if (btn) btn.disabled = true;
+
+            const fd = new FormData(form);
+            if (!fd.get('csrf_token')) {
+                fd.append('csrf_token', getCsrfToken());
+            }
+
+            try {
+                const res = await fetch('like.php', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'fetch',
+                        'X-CSRF-Token': getCsrfToken()
+                    },
+                    body: fd
+                });
+                const data = await res.json();
+                if (data && data.ok) {
+                    if (btn) {
+                        btn.classList.toggle('liked', !!data.liked);
+                        btn.classList.remove('pop');
+                        void btn.offsetWidth;
+                        btn.classList.add('pop');
+                    }
+                    if (countSpan) {
+                        countSpan.textContent = data.count + ' Suka';
+                    }
+                    pjaxCache.clear();
+                } else if (data && data.error) {
+                    showToast(data.error, 'error');
+                }
+            } catch (err) {
+                form.submit();
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        });
+    }
+
+    /* ---------------------------------------------------------
+       Instant PJAX Router + Warm & Hover Prefetch
     --------------------------------------------------------- */
     function isPjaxEligibleUrl(urlObj) {
         if (!urlObj || urlObj.origin !== window.location.origin) return false;
         let file = urlObj.pathname.split('/').pop() || 'index.php';
         if (file === '' || file === '/') file = 'index.php';
 
-        // Halaman autentikasi layar penuh atau aksi khusus menggunakan navigasi langsung
-        const bypassFiles = ['login.php', 'register.php', 'logout.php', 'chat-api.php', 'like.php', 'comment.php', 'album-delete.php', 'story-delete.php'];
+        const bypassFiles = [
+            'login.php', 'register.php', 'logout.php',
+            'chat-api.php', 'like.php', 'comment.php',
+            'album-delete.php', 'story-delete.php', 'profile-update.php'
+        ];
         if (bypassFiles.includes(file)) return false;
         if (urlObj.searchParams.has('del')) return false;
         return file.endsWith('.php') || file === 'index.php';
@@ -365,9 +436,7 @@
         const now = Date.now();
         if (!forceNetwork && pjaxCache.has(urlStr)) {
             const cached = pjaxCache.get(urlStr);
-            if (now - cached.time < PJAX_TTL) {
-                return cached.html;
-            }
+            if (now - cached.time < PJAX_TTL) return cached.html;
         }
 
         const res = await fetch(urlStr, {
@@ -376,13 +445,12 @@
             headers: { 'X-PJAX': 'true', 'Accept': 'text/html' }
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
-        // Jika diredirect ke login.php, batalkan PJAX dan arahkan penuh
         if (res.redirected && res.url.includes('login.php')) {
             window.location.href = res.url;
             return null;
         }
         const html = await res.text();
-        pjaxCache.set(urlStr, { html: html, time: Date.now() });
+        pjaxCache.set(urlStr, { html, time: Date.now() });
         return html;
     }
 
@@ -390,23 +458,16 @@
         try {
             const u = new URL(urlStr, window.location.origin);
             if (!isPjaxEligibleUrl(u)) return;
-            // Jangan cache chat.php terlalu lama, tapi boleh diprefetch saat hover
             const now = Date.now();
-            if (pjaxCache.has(u.href) && (now - pjaxCache.get(u.href).time < PJAX_TTL)) {
-                return;
-            }
-            fetchPageHtml(u.href, false).catch(function () {});
+            if (pjaxCache.has(u.href) && (now - pjaxCache.get(u.href).time < PJAX_TTL)) return;
+            fetchPageHtml(u.href, false).catch(() => {});
         } catch (e) {}
     }
 
     function runCleanupFns() {
-        if (Array.isArray(window.__pjaxCleanupFns)) {
-            while (window.__pjaxCleanupFns.length > 0) {
-                const fn = window.__pjaxCleanupFns.pop();
-                try {
-                    if (typeof fn === 'function') fn();
-                } catch (e) {}
-            }
+        while (Array.isArray(window.__pjaxCleanupFns) && window.__pjaxCleanupFns.length > 0) {
+            const fn = window.__pjaxCleanupFns.pop();
+            try { if (typeof fn === 'function') fn(); } catch (e) {}
         }
     }
 
@@ -416,17 +477,13 @@
 
         let activeNavRequest = 0;
 
-        // 1. Warm Prefetch otomatis halaman utama di latar belakang agar klik pertama 0ms!
         setTimeout(function () {
             ['index.php', 'profile.php', 'albums.php', 'stories.php', 'chat.php'].forEach(function (page) {
                 const u = new URL(page, window.location.href);
-                if (u.href !== window.location.href) {
-                    prefetchUrl(u.href);
-                }
+                if (u.href !== window.location.href) prefetchUrl(u.href);
             });
-        }, 300);
+        }, 320);
 
-        // 2. Prefetch instan saat kursor menyentuh (hover / touchstart) tautan apa pun
         document.addEventListener('mouseover', function (e) {
             const link = e.target.closest('a');
             if (!link || !link.href) return;
@@ -441,7 +498,6 @@
             prefetchUrl(link.href);
         }, { passive: true });
 
-        // 3. Tangani klik navigasi secara instan
         document.addEventListener('click', function (e) {
             const link = e.target.closest('a');
             if (!link) return;
@@ -455,7 +511,6 @@
             const url = new URL(link.href, window.location.href);
             if (!isPjaxEligibleUrl(url)) return;
 
-            // Jika klik halaman yang persis sama, cukup geser glider & scroll ke atas
             if (url.href === window.location.href) {
                 e.preventDefault();
                 if (syncNavToUrl) syncNavToUrl(url.href, true);
@@ -467,7 +522,6 @@
             navigateTo(url.href, true);
         });
 
-        // 4. Tangani tombol Back / Forward browser
         window.addEventListener('popstate', function () {
             if (isPjaxEligibleUrl(new URL(window.location.href))) {
                 navigateTo(window.location.href, false);
@@ -477,14 +531,12 @@
         async function navigateTo(targetUrl, pushState) {
             const reqId = ++activeNavRequest;
 
-            // Langsung geser tombol navbar ke sebelah tanpa menunggu jaringan!
             let slideDir = 'fade';
             if (syncNavToUrl) {
                 const navInfo = syncNavToUrl(targetUrl, true);
                 if (navInfo && navInfo.dir) slideDir = navInfo.dir;
             }
 
-            // Tutup panel mini chat jika sedang terbuka saat pindah ke chat.php
             const floatingPanel = $('#floatingChatPanel');
             if (floatingPanel && floatingPanel.classList.contains('open')) {
                 floatingPanel.classList.remove('open');
@@ -492,71 +544,62 @@
             }
 
             const isCached = pjaxCache.has(targetUrl) && (Date.now() - pjaxCache.get(targetUrl).time < PJAX_TTL);
-            if (!isCached) {
-                startProgress();
-            }
+            if (!isCached) startProgress();
 
             try {
                 const isChatTarget = targetUrl.includes('chat.php');
                 const html = await fetchPageHtml(targetUrl, isChatTarget);
                 if (!html || reqId !== activeNavRequest) return;
 
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
+                const doc = new DOMParser().parseFromString(html, 'text/html');
                 const newStage = doc.getElementById('pjaxStage');
-
                 if (!newStage) {
                     window.location.href = targetUrl;
                     return;
                 }
 
-                // Bersihkan listener/interval dari halaman sebelumnya
+                // Sinkronkan token CSRF terbaru dari dokumen baru jika ada
+                const newCsrf = doc.querySelector('meta[name="csrf-token"]');
+                const curCsrf = $('meta[name="csrf-token"]');
+                if (newCsrf && curCsrf) {
+                    curCsrf.setAttribute('content', newCsrf.getAttribute('content') || '');
+                }
+
                 runCleanupFns();
 
-                // Perbarui judul dokumen & URL
                 if (doc.title) document.title = doc.title;
                 if (pushState && window.history && window.history.pushState) {
                     window.history.pushState({ url: targetUrl }, '', targetUrl);
                 }
 
-                // Ganti isi #pjaxStage dan jalankan animasi slide directional
                 const curStage = $('#pjaxStage');
                 curStage.removeAttribute('data-slide-dir');
                 const pageAttr = newStage.getAttribute('data-page') || '';
                 curStage.setAttribute('data-page', pageAttr);
                 curStage.innerHTML = newStage.innerHTML;
 
-                // Paksa reflow ringan agar animasi masuk selalu terpicu mulus
                 void curStage.offsetWidth;
                 curStage.setAttribute('data-slide-dir', slideDir);
 
-                // Tampilkan/sembunyikan tombol floating mini chat
                 const floatingRoot = $('#floatingChatRoot');
                 if (floatingRoot) {
                     floatingRoot.style.display = (pageAttr === 'chat' || isChatTarget) ? 'none' : '';
                 }
 
-                // Gulir ke atas dengan instan agar transisi halaman langsung terlihat
-                window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+                window.scrollTo({ top: 0, behavior: 'auto' });
 
-                // Eksekusi inline <script> di dalam #pjaxStage baru
-                const scripts = $$('script', curStage);
-                scripts.forEach(function (oldScript) {
+                $$('script', curStage).forEach(function (oldScript) {
                     const newScript = document.createElement('script');
-                    Array.from(oldScript.attributes).forEach(function (attr) {
-                        newScript.setAttribute(attr.name, attr.value);
-                    });
+                    Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
                     newScript.textContent = oldScript.textContent;
                     oldScript.parentNode.replaceChild(newScript, oldScript);
                 });
 
-                // Inisialisasi ulang komponen interaktif pada halaman baru
                 initPageContent(curStage);
                 finishProgress();
 
-                // Jika halaman berasal dari cache, segarkan cache di latar belakang (Stale-While-Revalidate)
                 if (isCached && !isChatTarget) {
-                    fetchPageHtml(targetUrl, true).catch(function () {});
+                    fetchPageHtml(targetUrl, true).catch(() => {});
                 }
             } catch (err) {
                 window.location.href = targetUrl;
@@ -565,12 +608,11 @@
     }
 
     /* ---------------------------------------------------------
-       Muncul bertahap saat scroll
+       Scroll Reveal, Tabs, Modals, Ripple, Form UX, Lightbox
     --------------------------------------------------------- */
     function initReveal(ctx) {
         const items = $$('.reveal', ctx);
         if (!items.length) return;
-
         if (!('IntersectionObserver' in window)) {
             items.forEach(el => el.classList.add('is-visible'));
             return;
@@ -578,29 +620,22 @@
         const io = new IntersectionObserver(function (entries) {
             entries.forEach(function (entry, i) {
                 if (entry.isIntersecting) {
-                    setTimeout(function () {
-                        entry.target.classList.add('is-visible');
-                    }, i * 45);
+                    setTimeout(() => entry.target.classList.add('is-visible'), i * 40);
                     io.unobserve(entry.target);
                 }
             });
-        }, { threshold: 0.05, rootMargin: '0px 0px -10px 0px' });
-
+        }, { threshold: 0.05 });
         items.forEach(el => io.observe(el));
     }
 
-    /* ---------------------------------------------------------
-       Tab panel (tanpa reload + Sliding Tab Glider)
-    --------------------------------------------------------- */
     function initTabs(ctx) {
-        const tabGroups = $$('[data-tabs]', ctx);
-        tabGroups.forEach(function (group) {
+        $$('[data-tabs]', ctx).forEach(function (group) {
             if (group.dataset.tabsReady === '1') return;
             group.dataset.tabsReady = '1';
 
             const tabsNav = $('.tabs', group) || group;
             const buttons = $$('.tab-btn', group);
-            const panels = $$('.tab-panel', group);
+            const panels  = $$('.tab-panel', group);
             if (!buttons.length) return;
 
             let tabGlider = null;
@@ -612,12 +647,11 @@
 
             function updateTabGlider(activeBtn, animate) {
                 if (!tabGlider || !activeBtn) return;
-                if (!animate) tabGlider.style.transition = 'none';
-                else tabGlider.style.transition = '';
-                tabGlider.style.width = activeBtn.offsetWidth + 'px';
-                tabGlider.style.height = activeBtn.offsetHeight + 'px';
-                tabGlider.style.transform = `translate3d(${activeBtn.offsetLeft}px, ${activeBtn.offsetTop}px, 0)`;
-                tabGlider.style.opacity = '1';
+                tabGlider.style.transition = animate ? '' : 'none';
+                tabGlider.style.width      = activeBtn.offsetWidth + 'px';
+                tabGlider.style.height     = activeBtn.offsetHeight + 'px';
+                tabGlider.style.transform  = `translate3d(${activeBtn.offsetLeft}px, ${activeBtn.offsetTop}px, 0)`;
+                tabGlider.style.opacity    = '1';
                 if (!animate) {
                     void tabGlider.offsetWidth;
                     tabGlider.style.transition = '';
@@ -632,12 +666,8 @@
                     b.setAttribute('aria-selected', on ? 'true' : 'false');
                     if (on) activeBtn = b;
                 });
-                panels.forEach(function (p) {
-                    p.classList.toggle('active', p.dataset.panel === name);
-                });
-                if (activeBtn) {
-                    updateTabGlider(activeBtn, animate);
-                }
+                panels.forEach(p => p.classList.toggle('active', p.dataset.panel === name));
+                if (activeBtn) updateTabGlider(activeBtn, animate);
                 if (push && window.history && window.history.replaceState) {
                     const url = new URL(window.location.href);
                     url.searchParams.set('tab', name);
@@ -645,14 +675,9 @@
                 }
             }
 
-            buttons.forEach(function (btn) {
-                btn.addEventListener('click', function () {
-                    activate(btn.dataset.tab, true, true);
-                });
-            });
+            buttons.forEach(btn => btn.addEventListener('click', () => activate(btn.dataset.tab, true, true)));
 
-            const params = new URLSearchParams(window.location.search);
-            const wanted = params.get('tab');
+            const wanted  = new URLSearchParams(window.location.search).get('tab');
             const initial = buttons.some(b => b.dataset.tab === wanted)
                 ? wanted
                 : (group.dataset.defaultTab || (buttons[0] && buttons[0].dataset.tab));
@@ -666,42 +691,27 @@
         });
     }
 
-    /* ---------------------------------------------------------
-       Modal (Event Delegation)
-    --------------------------------------------------------- */
     function initModals() {
         function openModal(id) {
             const m = $('#' + id);
             if (!m) return;
             m.classList.add('open');
             document.body.style.overflow = 'hidden';
-            const first = m.querySelector('input, select, textarea');
-            if (first) setTimeout(function () { first.focus(); }, 100);
+            const first = m.querySelector('input:not([type="hidden"]), select, textarea');
+            if (first) setTimeout(() => first.focus(), 80);
         }
         function closeModal(m) {
             if (!m) return;
             m.classList.remove('open');
             document.body.style.overflow = '';
         }
-
         document.addEventListener('click', function (e) {
             const opener = e.target.closest('[data-modal-open]');
-            if (opener) {
-                e.preventDefault();
-                openModal(opener.dataset.modalOpen);
-                return;
-            }
+            if (opener) { e.preventDefault(); openModal(opener.dataset.modalOpen); return; }
             const closer = e.target.closest('[data-modal-close]');
-            if (closer) {
-                e.preventDefault();
-                closeModal(closer.closest('.modal'));
-                return;
-            }
-            if (e.target.classList && e.target.classList.contains('modal')) {
-                closeModal(e.target);
-            }
+            if (closer) { e.preventDefault(); closeModal(closer.closest('.modal')); return; }
+            if (e.target.classList && e.target.classList.contains('modal')) closeModal(e.target);
         });
-
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
                 const open = $('.modal.open');
@@ -710,9 +720,6 @@
         });
     }
 
-    /* ---------------------------------------------------------
-       Ripple pada tombol
-    --------------------------------------------------------- */
     function initRipple() {
         document.addEventListener('click', function (e) {
             const btn = e.target.closest('.btn');
@@ -722,16 +729,13 @@
             const ripple = document.createElement('span');
             ripple.className = 'ripple';
             ripple.style.width = ripple.style.height = size + 'px';
-            ripple.style.left = (e.clientX - rect.left - size / 2) + 'px';
-            ripple.style.top = (e.clientY - rect.top - size / 2) + 'px';
+            ripple.style.left  = (e.clientX - rect.left - size / 2) + 'px';
+            ripple.style.top   = (e.clientY - rect.top - size / 2) + 'px';
             btn.appendChild(ripple);
-            setTimeout(function () { ripple.remove(); }, 600);
+            setTimeout(() => ripple.remove(), 560);
         });
     }
 
-    /* ---------------------------------------------------------
-       UX form: password, meter, penghitung karakter, loading
-    --------------------------------------------------------- */
     function initFormUX(ctx) {
         $$('.pw-toggle', ctx).forEach(function (btn) {
             if (btn.dataset.bound === '1') return;
@@ -739,33 +743,30 @@
             btn.addEventListener('click', function () {
                 const input = document.getElementById(btn.dataset.target);
                 if (!input) return;
-                const isPass = input.type === 'password';
-                input.type = isPass ? 'text' : 'password';
-                btn.textContent = isPass ? '\u{1F648}' : '\u{1F441}';
-                btn.setAttribute('aria-label', isPass ? 'Sembunyikan password' : 'Tampilkan password');
+                input.type = input.type === 'password' ? 'text' : 'password';
             });
         });
 
         $$('[data-pw-meter]', ctx).forEach(function (input) {
             if (input.dataset.bound === '1') return;
             input.dataset.bound = '1';
-            const meter = $('#' + input.dataset.pwMeter);
-            const hint = input.dataset.pwHint ? $('#' + input.dataset.pwHint) : null;
-            const labels = ['Sangat lemah', 'Lemah', 'Cukup', 'Kuat', 'Sangat kuat'];
-
+            const meter  = $('#' + input.dataset.pwMeter);
+            const hint   = input.dataset.pwHint ? $('#' + input.dataset.pwHint) : null;
+            const labels = ['Terlalu pendek', 'Lemah', 'Cukup baik', 'Kuat', 'Sangat kuat'];
             input.addEventListener('input', function () {
                 const v = input.value;
-                let score = 0;
-                if (v.length >= 4) score++;
-                if (v.length >= 8) score++;
-                if (/[A-Z]/.test(v) && /[a-z]/.test(v)) score++;
-                if (/\d/.test(v)) score++;
-                if (/[^A-Za-z0-9]/.test(v)) score++;
-                score = Math.min(score, 4);
-                if (!v) score = 0;
-
-                if (meter) meter.className = 'pw-meter' + (v ? ' is-' + score : '');
-                if (hint) hint.textContent = v ? 'Kekuatan: ' + labels[score] : '';
+                let s = 0;
+                if (v.length >= 6) s++;
+                if (v.length >= 10) s++;
+                if (/[A-Z]/.test(v) && /[a-z]/.test(v)) s++;
+                if (/\d/.test(v) || /[^A-Za-z0-9]/.test(v)) s++;
+                if (!v) {
+                    if (meter) meter.className = 'pw-meter';
+                    if (hint) hint.textContent = '';
+                    return;
+                }
+                if (meter) meter.className = 'pw-meter is-' + Math.max(1, s);
+                if (hint) hint.textContent = 'Kekuatan sandi: ' + labels[s];
             });
         });
 
@@ -784,95 +785,44 @@
         });
 
         $$('form', ctx).forEach(function (form) {
-            if (form.hasAttribute('data-no-loading') || form.dataset.bound === '1') return;
+            if (form.hasAttribute('data-no-loading') || form.classList.contains('js-like-form') || form.dataset.bound === '1') return;
             form.dataset.bound = '1';
-            form.addEventListener('submit', function (e) {
-                const required = form.querySelectorAll('[required]');
-                let valid = true;
-                let firstBad = null;
-
-                required.forEach(function (input) {
-                    const empty = !input.value.trim();
-                    input.style.borderColor = '';
-                    if (empty) {
-                        valid = false;
-                        if (!firstBad) firstBad = input;
-                    }
-                });
-
-                if (!valid) {
-                    e.preventDefault();
-                    if (firstBad) {
-                        firstBad.classList.add('shake');
-                        firstBad.focus();
-                        setTimeout(function () { firstBad.classList.remove('shake'); }, 600);
-                    }
-                    return;
-                }
-
-                // Bersihkan cache PJAX saat ada perubahan data form
+            form.addEventListener('submit', function () {
                 pjaxCache.clear();
-
-                const submitBtn = form.querySelector('button[type="submit"]');
-                if (submitBtn && !form.hasAttribute('data-no-loading')) {
-                    submitBtn.classList.add('is-loading');
-                    submitBtn.disabled = true;
-                    setTimeout(function () {
-                        submitBtn.classList.remove('is-loading');
-                        submitBtn.disabled = false;
-                    }, 8000);
-                }
             });
         });
     }
 
-    /* ---------------------------------------------------------
-       Pencarian & filter tabel admin
-    --------------------------------------------------------- */
     function initTableTools(ctx) {
-        const search = $('[data-table-search]', ctx);
-        const rows = $$('[data-table-row]', ctx);
-        const empty = $('[data-table-empty]', ctx);
+        const search  = $('[data-table-search]', ctx);
+        const rows    = $$('[data-table-row]', ctx);
         const counter = $('[data-table-count]', ctx);
-        if (!search && !rows.length) return;
+        if (!search || !rows.length) return;
 
-        function applyFilter() {
-            const term = (search ? search.value : '').toLowerCase().trim();
+        function apply() {
+            const term = search.value.toLowerCase().trim();
             let shown = 0;
-
             rows.forEach(function (row) {
-                const haystack = (row.dataset.search || row.textContent || '').toLowerCase();
-                const match = !term || haystack.indexOf(term) !== -1;
-                row.style.display = match ? '' : 'none';
-                if (match) shown++;
+                const hay = (row.dataset.search || row.textContent || '').toLowerCase();
+                const ok  = !term || hay.includes(term);
+                row.style.display = ok ? '' : 'none';
+                if (ok) shown++;
             });
-
             if (counter) counter.textContent = shown + ' pengguna';
-            if (empty) empty.style.display = shown === 0 ? '' : 'none';
         }
-
-        if (search && search.dataset.bound !== '1') {
+        if (search.dataset.bound !== '1') {
             search.dataset.bound = '1';
-            search.addEventListener('input', applyFilter);
-            search.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape') { search.value = ''; applyFilter(); }
-            });
+            search.addEventListener('input', apply);
         }
-        applyFilter();
+        apply();
     }
 
-    /* ---------------------------------------------------------
-       Toast dari elemen .alert & helper global showToast
-    --------------------------------------------------------- */
     let toastWrap = null;
     function showToast(text, type) {
         if (!toastWrap) {
-            toastWrap = $('.toast-wrap');
-            if (!toastWrap) {
-                toastWrap = document.createElement('div');
-                toastWrap.className = 'toast-wrap';
-                document.body.appendChild(toastWrap);
-            }
+            toastWrap = $('.toast-wrap') || document.createElement('div');
+            toastWrap.className = 'toast-wrap';
+            if (!toastWrap.parentNode) document.body.appendChild(toastWrap);
         }
         const toast = document.createElement('div');
         toast.className = 'toast ' + (type === 'error' ? 'error' : 'success');
@@ -880,21 +830,12 @@
         toastWrap.appendChild(toast);
         setTimeout(function () {
             toast.classList.add('hide');
-            setTimeout(function () { toast.remove(); }, 320);
-        }, 4200);
+            setTimeout(() => toast.remove(), 300);
+        }, 3800);
     }
     window.showToast = showToast;
 
     function initToasts(ctx) {
-        if (!toastWrap) {
-            toastWrap = $('.toast-wrap');
-            if (!toastWrap) {
-                toastWrap = document.createElement('div');
-                toastWrap.className = 'toast-wrap';
-                document.body.appendChild(toastWrap);
-            }
-        }
-
         $$('.alert', ctx).forEach(function (alert) {
             if (alert.dataset.toasted === '1') return;
             alert.dataset.toasted = '1';
@@ -902,21 +843,14 @@
         });
     }
 
-    /* ---------------------------------------------------------
-       Animasi angka statistik
-    --------------------------------------------------------- */
     function initCounterAnimation(ctx) {
-        const nums = $$('[data-count]', ctx);
-        if (!nums.length) return;
-        nums.forEach(function (el) {
-            el.classList.add('count-up');
+        $$('[data-count]', ctx).forEach(function (el) {
             const target = parseFloat(el.dataset.count) || 0;
-            const dur = 650;
-            const start = performance.now();
+            const dur    = 600;
+            const start  = performance.now();
             function step(now) {
                 const p = Math.min((now - start) / dur, 1);
-                const eased = 1 - Math.pow(1 - p, 3);
-                el.textContent = Math.round(target * eased);
+                el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3)));
                 if (p < 1) requestAnimationFrame(step);
                 else el.textContent = target;
             }
@@ -924,9 +858,6 @@
         });
     }
 
-    /* ---------------------------------------------------------
-       Smooth scroll untuk anchor
-    --------------------------------------------------------- */
     function initSmoothScroll(ctx) {
         $$('a[href^="#"]', ctx).forEach(function (anchor) {
             if (anchor.dataset.bound === '1') return;
@@ -935,58 +866,40 @@
                 const href = this.getAttribute('href');
                 if (!href || href === '#') return;
                 const target = document.querySelector(href);
-                if (!target) return;
-                e.preventDefault();
-                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
             });
         });
     }
 
-    /* ---------------------------------------------------------
-       Lightbox Zoom Gambar Resolusi Tinggi (Event Delegation)
-    --------------------------------------------------------- */
     function initLightbox() {
         const backdrop = $('#imageLightbox');
-        const imgEl = $('#lightboxImage');
-        const capEl = $('#lightboxCaption');
+        const imgEl    = $('#lightboxImage');
+        const capEl    = $('#lightboxCaption');
         const closeBtn = $('#lightboxCloseBtn');
         if (!backdrop || !imgEl) return;
-
-        function openLightbox(src, alt) {
-            imgEl.src = src;
-            if (capEl) capEl.textContent = alt || '';
-            backdrop.classList.add('open');
-            backdrop.setAttribute('aria-hidden', 'false');
-            document.body.style.overflow = 'hidden';
-        }
 
         function closeLightbox() {
             backdrop.classList.remove('open');
             backdrop.setAttribute('aria-hidden', 'true');
             document.body.style.overflow = '';
         }
-
         document.addEventListener('click', function (e) {
             const img = e.target.closest('.detail-hero img, [data-lightbox]');
             if (img) {
-                openLightbox(img.src, img.alt);
+                imgEl.src = img.src;
+                if (capEl) capEl.textContent = img.alt || '';
+                backdrop.classList.add('open');
+                backdrop.setAttribute('aria-hidden', 'false');
+                document.body.style.overflow = 'hidden';
             }
         });
-
         if (closeBtn) closeBtn.addEventListener('click', closeLightbox);
-        backdrop.addEventListener('click', function (e) {
-            if (e.target === backdrop) closeLightbox();
-        });
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && backdrop.classList.contains('open')) {
-                closeLightbox();
-            }
+        backdrop.addEventListener('click', e => { if (e.target === backdrop) closeLightbox(); });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && backdrop.classList.contains('open')) closeLightbox();
         });
     }
 
-    /* ---------------------------------------------------------
-       Tombol Bagikan / Copy Link
-    --------------------------------------------------------- */
     function initShareButtons() {
         document.addEventListener('click', function (e) {
             const btn = e.target.closest('[data-share-url]');
@@ -994,9 +907,7 @@
             e.preventDefault();
             const url = btn.getAttribute('data-share-url') || window.location.href;
             if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(url).then(function () {
-                    showToast('Tautan berhasil disalin ke papan klip!', 'success');
-                });
+                navigator.clipboard.writeText(url).then(() => showToast('Tautan berhasil disalin ke papan klip!', 'success'));
             } else {
                 showToast('Tautan: ' + url, 'success');
             }
@@ -1004,15 +915,15 @@
     }
 
     /* ---------------------------------------------------------
-       Floating Mini Global Live Chat Drawer
+       Secure Floating Mini Global Live Chat Drawer
     --------------------------------------------------------- */
     function initFloatingChat() {
-        const fab = $('#floatingChatFab');
-        const panel = $('#floatingChatPanel');
-        const closeBtn = $('#floatingChatClose');
-        const body = $('#floatingChatBody');
-        const form = $('#floatingChatForm');
-        const input = $('#floatingChatInput');
+        const fab        = $('#floatingChatFab');
+        const panel      = $('#floatingChatPanel');
+        const closeBtn   = $('#floatingChatClose');
+        const body       = $('#floatingChatBody');
+        const form       = $('#floatingChatForm');
+        const input      = $('#floatingChatInput');
         const onlineText = $('#floatingOnlineText');
         if (!fab || !panel || !body) return;
 
@@ -1026,7 +937,7 @@
 
         async function loadMiniChat(scrollBottom) {
             try {
-                const res = await fetch('chat-api.php?action=fetch&limit=25&_t=' + Date.now(), { cache: 'no-store' });
+                const res  = await fetch('chat-api.php?action=fetch&limit=25&_t=' + Date.now(), { cache: 'no-store' });
                 const data = await res.json();
                 if (!data || !data.ok) return;
 
@@ -1037,18 +948,17 @@
                 if (Array.isArray(data.messages) && data.messages.length > 0) {
                     body.innerHTML = data.messages.map(function (m) {
                         const delBtn = m.can_delete
-                            ? `<button type="button" data-mini-del="${m.id}" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:0.72rem;" title="Hapus">🗑</button>`
+                            ? `<button type="button" data-mini-del="${m.id}" style="background:none;border:none;color:#fb7185;cursor:pointer;font-size:0.72rem;" title="Hapus">&times;</button>`
                             : '';
-                        const miniAvatar = m.avatar
-                            ? `<img src="uploads/${escapeHtml(m.avatar)}" class="user-avatar-img" style="width:20px;height:20px;margin-right:0.35rem;" alt="${escapeHtml(m.display_name)}">`
+                        const miniAv = m.avatar
+                            ? `<img src="uploads/${escapeHtml(m.avatar)}" class="user-avatar-img" style="width:20px;height:20px;margin-right:0.35rem;" alt="">`
                             : `<span class="user-avatar ${escapeHtml(m.avatar_class)}" style="width:20px;height:20px;font-size:0.55rem;margin-right:0.35rem;">${escapeHtml(m.initials)}</span>`;
 
                         return `
-                            <div class="mini-msg-item ${m.is_mine ? 'is-mine' : ''}" data-mini-id="${m.id}">
+                            <div class="mini-msg-item" data-mini-id="${m.id}">
                                 <div class="mini-msg-top">
                                     <strong style="color:var(--dark);display:flex;align-items:center;">
-                                        ${miniAvatar}
-                                        <span>${escapeHtml(m.display_name)}</span>
+                                        ${miniAv}<span>${escapeHtml(m.display_name)}</span>
                                     </strong>
                                     <span style="color:var(--muted);display:flex;align-items:center;gap:0.35rem;">
                                         ${escapeHtml(m.time_clock)} ${delBtn}
@@ -1068,12 +978,12 @@
         body.addEventListener('click', async function (e) {
             const delBtn = e.target.closest('[data-mini-del]');
             if (!delBtn) return;
-            const id = delBtn.getAttribute('data-mini-del');
             const fd = new FormData();
             fd.append('action', 'delete');
-            fd.append('id', id);
+            fd.append('id', delBtn.getAttribute('data-mini-del'));
+            fd.append('csrf_token', getCsrfToken());
             try {
-                await fetch('chat-api.php', { method: 'POST', body: fd });
+                await fetch('chat-api.php', { method: 'POST', headers: { 'X-CSRF-Token': getCsrfToken() }, body: fd });
                 pjaxCache.delete(new URL('index.php', window.location.origin).href);
                 await loadMiniChat(false);
             } catch (err) {}
@@ -1085,9 +995,7 @@
             if (isOpen) {
                 loadMiniChat(true);
                 if (input) setTimeout(() => input.focus(), 100);
-                if (!pollTimer) {
-                    pollTimer = setInterval(() => loadMiniChat(false), 3000);
-                }
+                if (!pollTimer) pollTimer = setInterval(() => loadMiniChat(false), 3000);
             } else if (pollTimer) {
                 clearInterval(pollTimer);
                 pollTimer = null;
@@ -1098,10 +1006,7 @@
             closeBtn.addEventListener('click', function () {
                 panel.classList.remove('open');
                 panel.setAttribute('aria-hidden', 'true');
-                if (pollTimer) {
-                    clearInterval(pollTimer);
-                    pollTimer = null;
-                }
+                if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
             });
         }
 
@@ -1114,8 +1019,11 @@
                 const fd = new FormData();
                 fd.append('action', 'send');
                 fd.append('message', msg);
+                fd.append('csrf_token', getCsrfToken());
                 try {
-                    await fetch('chat-api.php', { method: 'POST', body: fd });
+                    const res  = await fetch('chat-api.php', { method: 'POST', headers: { 'X-CSRF-Token': getCsrfToken() }, body: fd });
+                    const data = await res.json();
+                    if (data && data.error) showToast(data.error, 'error');
                     pjaxCache.delete(new URL('index.php', window.location.origin).href);
                     await loadMiniChat(true);
                 } catch (e) {}

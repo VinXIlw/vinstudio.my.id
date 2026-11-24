@@ -2,13 +2,12 @@
 require_once __DIR__ . '/config.php';
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-if (!$id) {
-    header("Location: stories.php");
-    exit;
+if ($id <= 0) {
+    safeRedirect('stories.php');
 }
 
 $stmt = $pdo->prepare("
-    SELECT s.*, u.display_name AS username, u.avatar AS user_avatar
+    SELECT s.*, u.display_name AS username, u.avatar AS user_avatar, u.specialty AS user_specialty
     FROM stories s
     JOIN users u ON s.user_id = u.id
     WHERE s.id = ?
@@ -22,8 +21,17 @@ if (!$story) {
     exit;
 }
 
-$pageTitle = $story['title'];
+if (!isset($_SESSION['viewed_stories'][$id])) {
+    $_SESSION['viewed_stories'][$id] = true;
+    $pdo->prepare("UPDATE stories SET views = COALESCE(views, 0) + 1 WHERE id = ?")->execute([$id]);
+    $story['views'] = (int)($story['views'] ?? 0) + 1;
+}
+
+$pageTitle   = $story['title'];
 $currentPage = 'stories';
+$user        = currentUser();
+$msg         = $_GET['msg'] ?? '';
+$err         = $_GET['err'] ?? '';
 
 $cStmt = $pdo->prepare("
     SELECT c.*, u.display_name, u.role, u.avatar AS user_avatar
@@ -40,108 +48,22 @@ $lStmt->execute([$id]);
 $likeCount = (int)$lStmt->fetchColumn();
 
 $liked = false;
-$user = currentUser();
 if ($user) {
-    $uStmt = $pdo->prepare("SELECT id FROM likes WHERE target_type = 'story' AND target_id = ? AND user_id = ?");
-    $uStmt->execute([$id, $user['id']]);
-    $liked = (bool)$uStmt->fetch();
+    $ulStmt = $pdo->prepare("SELECT id FROM likes WHERE user_id = ? AND target_type = 'story' AND target_id = ?");
+    $ulStmt->execute([$user['id'], $id]);
+    $liked = (bool)$ulStmt->fetch();
 }
 
-$msg = $_GET['msg'] ?? '';
-$err = $_GET['err'] ?? '';
+$canManage = $user && ((int)$story['user_id'] === $user['id'] || $user['role'] === 'admin');
 
 include __DIR__ . '/includes/header.php';
 ?>
 
-<style>
-    .story-article {
-        background: var(--white);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-xl);
-        padding: 2.75rem;
-        box-shadow: var(--shadow-sm);
-        margin-bottom: 2rem;
-    }
-    .story-content-body {
-        font-size: 1.12rem;
-        line-height: 1.88;
-        color: var(--text-soft);
-        margin-top: 1.85rem;
-        white-space: pre-line;
-        letter-spacing: 0.01em;
-    }
-    .like-bar {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        margin-top: 2.25rem;
-        padding-top: 1.25rem;
-        border-top: 1px solid var(--border);
-        flex-wrap: wrap;
-    }
-    .like-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.55rem 1.2rem;
-        border-radius: var(--radius-pill);
-        border: 1.5px solid var(--border-strong);
-        background: var(--white);
-        color: var(--text-soft);
-        font-weight: 700;
-        font-size: 0.95rem;
-        cursor: pointer;
-        transition: all var(--t) var(--ease);
-    }
-    .like-btn:hover {
-        border-color: #f43f5e;
-        color: #f43f5e;
-        background: rgba(244, 63, 94, 0.08);
-        transform: scale(1.04);
-    }
-    .like-btn.liked {
-        background: rgba(244, 63, 94, 0.14);
-        border-color: #f43f5e;
-        color: #e11d48;
-    }
-    .comments-section {
-        background: var(--white);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-lg);
-        padding: 1.75rem 2rem;
-        box-shadow: var(--shadow-sm);
-        margin-bottom: 2rem;
-    }
-    .comment-item {
-        display: flex;
-        gap: 1rem;
-        padding: 1.1rem 0;
-        border-bottom: 1px solid var(--border);
-    }
-    .comment-item:last-child {
-        border-bottom: none;
-    }
-    .comment-content-box {
-        flex: 1;
-    }
-    .comment-author-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 0.35rem;
-    }
-    .comment-text {
-        color: var(--text-soft);
-        line-height: 1.6;
-        word-break: break-word;
-    }
-</style>
-
 <main>
-    <div class="container" style="max-width:880px;">
-        <div style="margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
-            <a href="stories.php" class="btn btn-outline btn-sm">&larr; Kembali ke Semua Cerita</a>
-            <button type="button" class="btn btn-outline btn-sm" data-share-url="">🔗 Bagikan Artikel</button>
+    <div style="max-width:880px;margin:0 auto;">
+        <div style="margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.6rem;">
+            <a href="stories.php" class="btn btn-outline btn-sm"><?= svgIcon('arrow-left', 15) ?> Semua Artikel</a>
+            <button type="button" class="btn btn-outline btn-sm" data-share-url=""><?= svgIcon('share', 14) ?> Bagikan Artikel</button>
         </div>
 
         <?php if ($msg): ?>
@@ -151,29 +73,40 @@ include __DIR__ . '/includes/header.php';
             <div class="alert alert-error"><?= htmlspecialchars($err) ?></div>
         <?php endif; ?>
 
-        <!-- Artikel Cerita -->
-        <article class="story-article page-anim">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
-                <div style="flex:1;">
-                    <div style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.78rem;color:var(--primary);font-weight:700;background:var(--primary-soft);padding:0.25rem 0.7rem;border-radius:999px;margin-bottom:0.85rem;">
-                        <span>⏱ Estimasi baca: <?= readingTime($story['content']) ?></span>
+        <article class="story-reader-card page-anim">
+            <div class="detail-header-flex">
+                <div style="flex:1;min-width:240px;">
+                    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.65rem;flex-wrap:wrap;">
+                        <span class="badge"><?= htmlspecialchars($story['category'] ?: 'Catatan Praktikum') ?></span>
+                        <span class="mono-tag"><?= readingTime($story['content']) ?></span>
+                        <span class="mono-tag"><?= svgIcon('eye', 12) ?> <?= (int)($story['views'] ?? 0) ?> dibaca</span>
                     </div>
-                    <h1 style="font-size:2.2rem;line-height:1.25;color:var(--dark);letter-spacing:-0.02em;margin-bottom:0.85rem;">
+                    <h1 style="font-size:clamp(1.65rem, 3.2vw, 2.3rem);line-height:1.25;color:var(--dark);margin-bottom:1rem;">
                         <?= htmlspecialchars($story['title']) ?>
                     </h1>
-                    <div class="user-cell" style="margin-top:0.75rem;">
-                        <?= renderAvatar($story['username'], $story['user_avatar'] ?? null, '40px') ?>
+                    <a href="profile.php?member=<?= (int)$story['user_id'] ?>" class="user-cell" style="text-decoration:none;">
+                        <?= renderAvatar($story['username'], $story['user_avatar'] ?? null, '42px') ?>
                         <div class="user-info">
                             <div class="user-name"><?= htmlspecialchars($story['username']) ?></div>
-                            <span class="user-email"><?= fmtDateTime($story['created_at']) ?> &middot; <?= timeAgo($story['created_at']) ?></span>
+                            <span class="user-email">
+                                <?= !empty($story['user_specialty']) ? htmlspecialchars($story['user_specialty']) . ' &middot; ' : '' ?>
+                                <?= fmtDateTime($story['created_at']) ?>
+                            </span>
                         </div>
-                    </div>
+                    </a>
                 </div>
-                <?php if ($user && ($story['user_id'] == $user['id'] || $user['role'] === 'admin')): ?>
-                    <form action="story-delete.php" method="POST" onsubmit="return confirm('Apakah kamu yakin ingin menghapus cerita ini?');">
-                        <input type="hidden" name="id" value="<?= $story['id'] ?>">
-                        <button type="submit" class="btn btn-delete btn-sm">🗑 Hapus Cerita</button>
+
+                <?php if ($canManage): ?>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                    <a href="story-add.php?edit=<?= (int)$story['id'] ?>" class="btn btn-outline btn-sm">
+                        <?= svgIcon('edit', 14) ?> Edit Artikel
+                    </a>
+                    <form action="story-delete.php" method="POST" class="inline-form" onsubmit="return confirm('Hapus artikel ini secara permanen beserta seluruh komentarnya?');">
+                        <?= csrfField() ?>
+                        <input type="hidden" name="id" value="<?= (int)$story['id'] ?>">
+                        <button type="submit" class="btn btn-delete btn-sm"><?= svgIcon('trash', 14) ?> Hapus</button>
                     </form>
+                </div>
                 <?php endif; ?>
             </div>
 
@@ -181,88 +114,93 @@ include __DIR__ . '/includes/header.php';
                 <?= nl2br(htmlspecialchars($story['content'])) ?>
             </div>
 
-            <!-- Tombol Like -->
             <div class="like-bar">
                 <?php if ($user): ?>
-                    <form action="like.php" method="POST" class="inline-form">
+                    <form action="like.php" method="POST" class="inline-form js-like-form" data-no-loading>
+                        <?= csrfField() ?>
                         <input type="hidden" name="target_type" value="story">
-                        <input type="hidden" name="target_id" value="<?= $story['id'] ?>">
-                        <input type="hidden" name="return_url" value="story-detail.php?id=<?= $story['id'] ?>">
-                        <button type="submit" class="like-btn <?= $liked ? 'liked' : '' ?>" title="<?= $liked ? 'Batal Suka' : 'Sukai Cerita' ?>">
-                            <span><?= $liked ? '❤️' : '🤍' ?></span>
-                            <span><?= $likeCount ?> Suka</span>
+                        <input type="hidden" name="target_id" value="<?= (int)$story['id'] ?>">
+                        <input type="hidden" name="return_url" value="story-detail.php?id=<?= (int)$story['id'] ?>">
+                        <button type="submit" class="like-btn <?= $liked ? 'liked' : '' ?>">
+                            <?= svgIcon('heart', 16) ?>
+                            <span data-like-count><?= $likeCount ?> Suka</span>
                         </button>
                     </form>
                 <?php else: ?>
-                    <a href="login.php?r=story-detail.php?id=<?= $story['id'] ?>" class="like-btn" title="Masuk untuk menyukai">
-                        <span>🤍</span>
+                    <a href="login.php?r=<?= urlencode('story-detail.php?id=' . $story['id']) ?>" class="like-btn" data-no-transition>
+                        <?= svgIcon('heart', 16) ?>
                         <span><?= $likeCount ?> Suka</span>
                     </a>
                 <?php endif; ?>
-                <span class="admin-hint">💬 <?= count($comments) ?> Komentar</span>
+                <span class="admin-hint"><?= svgIcon('chat', 15) ?> <?= count($comments) ?> Komentar</span>
             </div>
         </article>
 
-        <!-- Bagian Komentar -->
-        <div class="comments-section page-anim">
-            <h2 style="font-size:1.3rem;margin-bottom:1.25rem;color:var(--dark);display:flex;align-items:center;gap:0.5rem;">
-                💬 Diskusi &amp; Komentar (<?= count($comments) ?>)
+        <!-- Diskusi & Komentar -->
+        <section class="comments-section page-anim">
+            <h2 style="font-size:1.25rem;color:var(--dark);margin-bottom:1.2rem;display:flex;align-items:center;gap:0.5rem;">
+                <?= svgIcon('chat', 19) ?> Diskusi &amp; Komentar (<?= count($comments) ?>)
             </h2>
 
             <?php if ($user): ?>
-                <form action="comment.php" method="POST" style="margin-bottom:2rem;">
+                <form action="comment.php" method="POST" style="margin-bottom:1.75rem;">
+                    <?= csrfField() ?>
                     <input type="hidden" name="action" value="add">
                     <input type="hidden" name="target_type" value="story">
-                    <input type="hidden" name="target_id" value="<?= $story['id'] ?>">
-                    <input type="hidden" name="return_url" value="story-detail.php?id=<?= $story['id'] ?>">
-                    <div class="form-group">
-                        <label for="content">Tulis tanggapan atau apresiasi:</label>
-                        <textarea id="content" name="content" rows="3" required placeholder="Tulis komentar kamu di sini..." style="resize:vertical;"></textarea>
+                    <input type="hidden" name="target_id" value="<?= (int)$story['id'] ?>">
+                    <input type="hidden" name="return_url" value="story-detail.php?id=<?= (int)$story['id'] ?>">
+                    <div class="form-group" style="margin-bottom:0.75rem;">
+                        <textarea name="content" rows="3" maxlength="1000" required placeholder="Tulis tanggapan atau diskusi mengenai artikel ini..."></textarea>
                     </div>
                     <button type="submit" class="btn btn-primary btn-sm">Kirim Komentar</button>
                 </form>
             <?php else: ?>
-                <div class="empty-state" style="padding:1.5rem;margin-bottom:1.5rem;">
-                    <p>Ingin berpartisipasi dalam diskusi? <a href="login.php?r=story-detail.php?id=<?= $story['id'] ?>">Masuk untuk menulis komentar</a></p>
+                <div class="empty-state" style="padding:1.35rem;margin-bottom:1.5rem;">
+                    <p>Ingin berpartisipasi dalam diskusi? <a href="login.php?r=<?= urlencode('story-detail.php?id=' . $story['id']) ?>" data-no-transition><strong>Masuk ke Akun</strong></a></p>
                 </div>
             <?php endif; ?>
 
             <?php if (empty($comments)): ?>
-                <div class="empty-state" style="padding:2rem;">
-                    <p class="admin-hint">Belum ada komentar untuk cerita ini. Jadilah yang pertama memberikan apresiasi!</p>
+                <div class="empty-state" style="padding:1.8rem;">
+                    <p class="admin-hint">Belum ada komentar untuk artikel ini. Jadilah yang pertama berdiskusi!</p>
                 </div>
             <?php else: ?>
                 <div class="comments-list">
                     <?php foreach ($comments as $c): ?>
                         <div class="comment-item">
-                            <?= renderAvatar($c['display_name'], $c['user_avatar'] ?? null, '38px', '', 'margin-right:0.6rem;') ?>
+                            <?= renderAvatar($c['display_name'], $c['user_avatar'] ?? null, '38px') ?>
                             <div class="comment-content-box">
                                 <div class="comment-author-row">
-                                    <div>
-                                        <strong><?= htmlspecialchars($c['display_name']) ?></strong>
+                                    <div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;">
+                                        <a href="profile.php?member=<?= (int)$c['user_id'] ?>" style="font-weight:700;color:var(--dark);font-size:0.9rem;">
+                                            <?= htmlspecialchars($c['display_name']) ?>
+                                        </a>
                                         <?php if ($c['role'] === 'admin'): ?>
-                                            <span class="role-badge role-admin" style="font-size:0.65rem;margin-left:0.3rem;">Admin</span>
+                                            <span class="role-badge role-admin" style="font-size:0.62rem;">Admin</span>
                                         <?php endif; ?>
-                                        <small class="admin-hint" style="margin-left:0.5rem;"><?= timeAgo($c['created_at']) ?></small>
+                                        <span class="admin-hint" style="font-size:0.75rem;"><?= timeAgo($c['created_at']) ?></span>
                                     </div>
-                                    <?php if ($user && ($c['user_id'] == $user['id'] || $user['role'] === 'admin')): ?>
+                                    <?php if ($user && ((int)$c['user_id'] === $user['id'] || $user['role'] === 'admin')): ?>
                                         <form action="comment.php" method="POST" class="inline-form" onsubmit="return confirm('Hapus komentar ini?');">
+                                            <?= csrfField() ?>
                                             <input type="hidden" name="action" value="delete">
-                                            <input type="hidden" name="comment_id" value="<?= $c['id'] ?>">
-                                            <input type="hidden" name="return_url" value="story-detail.php?id=<?= $story['id'] ?>">
-                                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger);padding:0.2rem 0.5rem;font-size:0.75rem;">
-                                                ✕ Hapus
+                                            <input type="hidden" name="comment_id" value="<?= (int)$c['id'] ?>">
+                                            <input type="hidden" name="return_url" value="story-detail.php?id=<?= (int)$story['id'] ?>">
+                                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger) !important;padding:0.2rem 0.45rem;" title="Hapus komentar">
+                                                <?= svgIcon('trash', 14) ?>
                                             </button>
                                         </form>
                                     <?php endif; ?>
                                 </div>
-                                <div class="comment-text"><?= nl2br(htmlspecialchars($c['content'])) ?></div>
+                                <div style="font-size:0.9rem;color:var(--text-soft);line-height:1.6;">
+                                    <?= nl2br(htmlspecialchars($c['content'])) ?>
+                                </div>
                             </div>
                         </div>
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
-        </div>
+        </section>
     </div>
 </main>
 

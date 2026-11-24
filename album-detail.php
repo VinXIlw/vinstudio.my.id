@@ -2,13 +2,12 @@
 require_once __DIR__ . '/config.php';
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-if (!$id) {
-    header("Location: albums.php");
-    exit;
+if ($id <= 0) {
+    safeRedirect('albums.php');
 }
 
 $stmt = $pdo->prepare("
-    SELECT a.*, u.display_name AS username, u.avatar AS user_avatar
+    SELECT a.*, u.display_name AS username, u.avatar AS user_avatar, u.specialty AS user_specialty
     FROM albums a
     JOIN users u ON a.user_id = u.id
     WHERE a.id = ?
@@ -22,8 +21,18 @@ if (!$album) {
     exit;
 }
 
-$pageTitle = $album['title'];
+// Tambah view counter 1x per sesi untuk album ini
+if (!isset($_SESSION['viewed_albums'][$id])) {
+    $_SESSION['viewed_albums'][$id] = true;
+    $pdo->prepare("UPDATE albums SET views = COALESCE(views, 0) + 1 WHERE id = ?")->execute([$id]);
+    $album['views'] = (int)($album['views'] ?? 0) + 1;
+}
+
+$pageTitle   = $album['title'];
 $currentPage = 'albums';
+$user        = currentUser();
+$msg         = $_GET['msg'] ?? '';
+$err         = $_GET['err'] ?? '';
 
 $cStmt = $pdo->prepare("
     SELECT c.*, u.display_name, u.role, u.avatar AS user_avatar
@@ -40,142 +49,22 @@ $lStmt->execute([$id]);
 $likeCount = (int)$lStmt->fetchColumn();
 
 $liked = false;
-$user = currentUser();
 if ($user) {
-    $uStmt = $pdo->prepare("SELECT id FROM likes WHERE target_type = 'album' AND target_id = ? AND user_id = ?");
-    $uStmt->execute([$id, $user['id']]);
-    $liked = (bool)$uStmt->fetch();
+    $ulStmt = $pdo->prepare("SELECT id FROM likes WHERE user_id = ? AND target_type = 'album' AND target_id = ?");
+    $ulStmt->execute([$user['id'], $id]);
+    $liked = (bool)$ulStmt->fetch();
 }
 
-$msg = $_GET['msg'] ?? '';
-$err = $_GET['err'] ?? '';
+$canManage = $user && ((int)$album['user_id'] === $user['id'] || $user['role'] === 'admin');
 
 include __DIR__ . '/includes/header.php';
 ?>
 
-<style>
-    .detail-hero {
-        position: relative;
-        border-radius: var(--radius-xl);
-        overflow: hidden;
-        background: #020617;
-        box-shadow: var(--shadow-lg);
-        margin-bottom: 2rem;
-        max-height: 560px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: 1px solid var(--border);
-    }
-    .detail-hero img {
-        width: 100%;
-        height: 100%;
-        max-height: 560px;
-        object-fit: contain;
-        background: #020617;
-        transition: transform 0.3s ease;
-    }
-    .zoom-hint-badge {
-        position: absolute;
-        bottom: 1rem;
-        right: 1rem;
-        background: rgba(15, 23, 42, 0.78);
-        backdrop-filter: blur(8px);
-        color: #f8fafc;
-        padding: 0.4rem 0.85rem;
-        border-radius: var(--radius-pill);
-        font-size: 0.76rem;
-        font-weight: 600;
-        pointer-events: none;
-        border: 1px solid rgba(255, 255, 255, 0.15);
-    }
-    .detail-meta-card {
-        background: var(--white);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-lg);
-        padding: 1.75rem 2rem;
-        margin-bottom: 2rem;
-        box-shadow: var(--shadow-sm);
-    }
-    .detail-header-flex {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 1.5rem;
-        flex-wrap: wrap;
-    }
-    .like-bar {
-        display: flex;
-        align-items: center;
-        gap: 0.85rem;
-        margin-top: 1.35rem;
-        padding-top: 1.25rem;
-        border-top: 1px solid var(--border);
-        flex-wrap: wrap;
-    }
-    .like-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.55rem 1.2rem;
-        border-radius: var(--radius-pill);
-        border: 1.5px solid var(--border-strong);
-        background: var(--white);
-        color: var(--text-soft);
-        font-weight: 700;
-        font-size: 0.92rem;
-        cursor: pointer;
-        transition: all var(--t) var(--ease);
-    }
-    .like-btn:hover {
-        border-color: #f43f5e;
-        color: #f43f5e;
-        background: rgba(244, 63, 94, 0.08);
-        transform: scale(1.03);
-    }
-    .like-btn.liked {
-        background: rgba(244, 63, 94, 0.14);
-        border-color: #f43f5e;
-        color: #e11d48;
-    }
-    .comments-section {
-        background: var(--white);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-lg);
-        padding: 1.75rem 2rem;
-        box-shadow: var(--shadow-sm);
-        margin-bottom: 2rem;
-    }
-    .comment-item {
-        display: flex;
-        gap: 1rem;
-        padding: 1.1rem 0;
-        border-bottom: 1px solid var(--border);
-    }
-    .comment-item:last-child {
-        border-bottom: none;
-    }
-    .comment-content-box {
-        flex: 1;
-    }
-    .comment-author-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 0.35rem;
-    }
-    .comment-text {
-        color: var(--text-soft);
-        line-height: 1.6;
-        word-break: break-word;
-    }
-</style>
-
 <main>
-    <div class="container" style="max-width:960px;">
-        <div style="margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
-            <a href="albums.php" class="btn btn-outline btn-sm">&larr; Kembali ke Galeri Album</a>
-            <button type="button" class="btn btn-outline btn-sm" data-share-url="">🔗 Bagikan Tautan</button>
+    <div style="max-width:960px;margin:0 auto;">
+        <div style="margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.6rem;">
+            <a href="albums.php" class="btn btn-outline btn-sm"><?= svgIcon('arrow-left', 15) ?> Kembali ke Galeri</a>
+            <button type="button" class="btn btn-outline btn-sm" data-share-url=""><?= svgIcon('share', 14) ?> Bagikan Tautan</button>
         </div>
 
         <?php if ($msg): ?>
@@ -185,124 +74,145 @@ include __DIR__ . '/includes/header.php';
             <div class="alert alert-error"><?= htmlspecialchars($err) ?></div>
         <?php endif; ?>
 
-        <!-- Preview Foto dengan Lightbox -->
+        <!-- Hero Pratinjau Gambar Resolusi Tinggi -->
         <div class="detail-hero page-anim">
-            <img src="<?= (!empty($album['photo']) && $album['photo'] !== 'no-image.png') ? 'uploads/' . htmlspecialchars($album['photo']) : 'img/placeholder.svg' ?>"
+            <img src="<?= (!empty($album['photo']) && $album['photo'] !== 'no-image.png') ? 'uploads/' . htmlspecialchars(basename($album['photo'])) : 'img/placeholder.svg' ?>"
                  alt="<?= htmlspecialchars($album['title']) ?>"
                  data-lightbox
                  onerror="this.onerror=null;this.src='img/placeholder.svg';">
-            <span class="zoom-hint-badge">🔍 Klik gambar untuk perbesar</span>
+            <span class="zoom-hint-badge"><?= svgIcon('search', 13) ?> Klik gambar untuk perbesar</span>
         </div>
 
-        <!-- Metadata Album -->
-        <div class="detail-meta-card page-anim">
+        <!-- Detail & Metadata Karya -->
+        <article class="detail-meta-card page-anim">
             <div class="detail-header-flex">
-                <div>
-                    <h1 style="font-size:1.85rem;margin-bottom:0.4rem;color:var(--dark);"><?= htmlspecialchars($album['title']) ?></h1>
-                    <div class="user-cell" style="margin-top:0.5rem;">
-                        <?= renderAvatar($album['username'], $album['user_avatar'] ?? null, '38px') ?>
+                <div style="flex:1;min-width:240px;">
+                    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.55rem;flex-wrap:wrap;">
+                        <span class="badge"><?= htmlspecialchars($album['category'] ?: 'Dokumentasi Kelas') ?></span>
+                        <span class="mono-tag"><?= svgIcon('eye', 12) ?> <?= (int)($album['views'] ?? 0) ?> dilihat</span>
+                    </div>
+                    <h1 style="font-size:1.85rem;color:var(--dark);margin-bottom:0.75rem;line-height:1.25;">
+                        <?= htmlspecialchars($album['title']) ?>
+                    </h1>
+                    <a href="profile.php?member=<?= (int)$album['user_id'] ?>" class="user-cell" style="text-decoration:none;">
+                        <?= renderAvatar($album['username'], $album['user_avatar'] ?? null, '40px') ?>
                         <div class="user-info">
                             <div class="user-name"><?= htmlspecialchars($album['username']) ?></div>
-                            <span class="user-email"><?= fmtDateTime($album['created_at']) ?> (<?= timeAgo($album['created_at']) ?>)</span>
+                            <span class="user-email">
+                                <?= !empty($album['user_specialty']) ? htmlspecialchars($album['user_specialty']) . ' &middot; ' : '' ?>
+                                <?= fmtDateTime($album['created_at']) ?>
+                            </span>
                         </div>
-                    </div>
+                    </a>
                 </div>
-                <?php if ($user && ($album['user_id'] == $user['id'] || $user['role'] === 'admin')): ?>
-                    <form action="album-delete.php" method="POST" onsubmit="return confirm('Apakah kamu yakin ingin menghapus album ini?');">
-                        <input type="hidden" name="id" value="<?= $album['id'] ?>">
-                        <button type="submit" class="btn btn-delete btn-sm">🗑 Hapus Album</button>
+
+                <?php if ($canManage): ?>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                    <a href="album-add.php?edit=<?= (int)$album['id'] ?>" class="btn btn-outline btn-sm">
+                        <?= svgIcon('edit', 14) ?> Edit Karya
+                    </a>
+                    <form action="album-delete.php" method="POST" class="inline-form" onsubmit="return confirm('Hapus karya ini secara permanen beserta seluruh komentarnya?');">
+                        <?= csrfField() ?>
+                        <input type="hidden" name="id" value="<?= (int)$album['id'] ?>">
+                        <button type="submit" class="btn btn-delete btn-sm"><?= svgIcon('trash', 14) ?> Hapus</button>
                     </form>
+                </div>
                 <?php endif; ?>
             </div>
 
             <?php if (!empty($album['description'])): ?>
-                <div style="margin-top:1.25rem;font-size:1.02rem;color:var(--text-soft);line-height:1.72;">
+                <div class="story-content-body" style="margin-top:1.35rem;font-size:0.98rem;">
                     <?= nl2br(htmlspecialchars($album['description'])) ?>
                 </div>
             <?php endif; ?>
 
-            <!-- Bar Like & Share -->
             <div class="like-bar">
                 <?php if ($user): ?>
-                    <form action="like.php" method="POST" class="inline-form">
+                    <form action="like.php" method="POST" class="inline-form js-like-form" data-no-loading>
+                        <?= csrfField() ?>
                         <input type="hidden" name="target_type" value="album">
-                        <input type="hidden" name="target_id" value="<?= $album['id'] ?>">
-                        <input type="hidden" name="return_url" value="album-detail.php?id=<?= $album['id'] ?>">
-                        <button type="submit" class="like-btn <?= $liked ? 'liked' : '' ?>" title="<?= $liked ? 'Batal Suka' : 'Sukai Album' ?>">
-                            <span><?= $liked ? '❤️' : '🤍' ?></span>
-                            <span><?= $likeCount ?> Suka</span>
+                        <input type="hidden" name="target_id" value="<?= (int)$album['id'] ?>">
+                        <input type="hidden" name="return_url" value="album-detail.php?id=<?= (int)$album['id'] ?>">
+                        <button type="submit" class="like-btn <?= $liked ? 'liked' : '' ?>">
+                            <?= svgIcon('heart', 16) ?>
+                            <span data-like-count><?= $likeCount ?> Suka</span>
                         </button>
                     </form>
                 <?php else: ?>
-                    <a href="login.php?r=album-detail.php?id=<?= $album['id'] ?>" class="like-btn" title="Masuk untuk menyukai">
-                        <span>🤍</span>
+                    <a href="login.php?r=<?= urlencode('album-detail.php?id=' . $album['id']) ?>" class="like-btn" data-no-transition>
+                        <?= svgIcon('heart', 16) ?>
                         <span><?= $likeCount ?> Suka</span>
                     </a>
                 <?php endif; ?>
-                <span class="admin-hint">💬 <?= count($comments) ?> Komentar</span>
+                <span class="admin-hint"><?= svgIcon('chat', 15) ?> <?= count($comments) ?> Komentar</span>
             </div>
-        </div>
+        </article>
 
-        <!-- Bagian Komentar -->
-        <div class="comments-section page-anim">
-            <h2 style="font-size:1.3rem;margin-bottom:1.25rem;color:var(--dark);display:flex;align-items:center;gap:0.5rem;">
-                💬 Diskusi &amp; Komentar (<?= count($comments) ?>)
+        <!-- Diskusi & Komentar -->
+        <section class="comments-section page-anim">
+            <h2 style="font-size:1.25rem;color:var(--dark);margin-bottom:1.2rem;display:flex;align-items:center;gap:0.5rem;">
+                <?= svgIcon('chat', 19) ?> Diskusi &amp; Apresiasi (<?= count($comments) ?>)
             </h2>
 
             <?php if ($user): ?>
-                <form action="comment.php" method="POST" style="margin-bottom:2rem;">
+                <form action="comment.php" method="POST" style="margin-bottom:1.75rem;">
+                    <?= csrfField() ?>
                     <input type="hidden" name="action" value="add">
                     <input type="hidden" name="target_type" value="album">
-                    <input type="hidden" name="target_id" value="<?= $album['id'] ?>">
-                    <input type="hidden" name="return_url" value="album-detail.php?id=<?= $album['id'] ?>">
-                    <div class="form-group">
-                        <label for="content">Tulis tanggapan atau apresiasi:</label>
-                        <textarea id="content" name="content" rows="3" required placeholder="Tulis komentar kamu di sini..." style="resize:vertical;"></textarea>
+                    <input type="hidden" name="target_id" value="<?= (int)$album['id'] ?>">
+                    <input type="hidden" name="return_url" value="album-detail.php?id=<?= (int)$album['id'] ?>">
+                    <div class="form-group" style="margin-bottom:0.75rem;">
+                        <textarea name="content" rows="3" maxlength="1000" required placeholder="Tulis tanggapan, pertanyaan teknis, atau apresiasi..."></textarea>
                     </div>
                     <button type="submit" class="btn btn-primary btn-sm">Kirim Komentar</button>
                 </form>
             <?php else: ?>
-                <div class="empty-state" style="padding:1.5rem;margin-bottom:1.5rem;">
-                    <p>Ingin bergabung dalam diskusi? <a href="login.php?r=album-detail.php?id=<?= $album['id'] ?>">Masuk untuk menulis komentar</a></p>
+                <div class="empty-state" style="padding:1.35rem;margin-bottom:1.5rem;">
+                    <p>Ingin ikut memberikan komentar? <a href="login.php?r=<?= urlencode('album-detail.php?id=' . $album['id']) ?>" data-no-transition><strong>Masuk ke Akun</strong></a></p>
                 </div>
             <?php endif; ?>
 
             <?php if (empty($comments)): ?>
-                <div class="empty-state" style="padding:2rem;">
-                    <p class="admin-hint">Belum ada komentar untuk karya ini. Jadilah yang pertama memberikan tanggapan!</p>
+                <div class="empty-state" style="padding:1.8rem;">
+                    <p class="admin-hint">Belum ada komentar. Jadilah yang pertama memberikan tanggapan!</p>
                 </div>
             <?php else: ?>
                 <div class="comments-list">
                     <?php foreach ($comments as $c): ?>
                         <div class="comment-item">
-                            <?= renderAvatar($c['display_name'], $c['user_avatar'] ?? null, '38px', '', 'margin-right:0.6rem;') ?>
+                            <?= renderAvatar($c['display_name'], $c['user_avatar'] ?? null, '38px') ?>
                             <div class="comment-content-box">
                                 <div class="comment-author-row">
-                                    <div>
-                                        <strong><?= htmlspecialchars($c['display_name']) ?></strong>
+                                    <div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;">
+                                        <a href="profile.php?member=<?= (int)$c['user_id'] ?>" style="font-weight:700;color:var(--dark);font-size:0.9rem;">
+                                            <?= htmlspecialchars($c['display_name']) ?>
+                                        </a>
                                         <?php if ($c['role'] === 'admin'): ?>
-                                            <span class="role-badge role-admin" style="font-size:0.65rem;margin-left:0.3rem;">Admin</span>
+                                            <span class="role-badge role-admin" style="font-size:0.62rem;">Admin</span>
                                         <?php endif; ?>
-                                        <small class="admin-hint" style="margin-left:0.5rem;"><?= timeAgo($c['created_at']) ?></small>
+                                        <span class="admin-hint" style="font-size:0.75rem;"><?= timeAgo($c['created_at']) ?></span>
                                     </div>
-                                    <?php if ($user && ($c['user_id'] == $user['id'] || $user['role'] === 'admin')): ?>
+                                    <?php if ($user && ((int)$c['user_id'] === $user['id'] || $user['role'] === 'admin')): ?>
                                         <form action="comment.php" method="POST" class="inline-form" onsubmit="return confirm('Hapus komentar ini?');">
+                                            <?= csrfField() ?>
                                             <input type="hidden" name="action" value="delete">
-                                            <input type="hidden" name="comment_id" value="<?= $c['id'] ?>">
-                                            <input type="hidden" name="return_url" value="album-detail.php?id=<?= $album['id'] ?>">
-                                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger);padding:0.2rem 0.5rem;font-size:0.75rem;">
-                                                ✕ Hapus
+                                            <input type="hidden" name="comment_id" value="<?= (int)$c['id'] ?>">
+                                            <input type="hidden" name="return_url" value="album-detail.php?id=<?= (int)$album['id'] ?>">
+                                            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger) !important;padding:0.2rem 0.45rem;" title="Hapus komentar">
+                                                <?= svgIcon('trash', 14) ?>
                                             </button>
                                         </form>
                                     <?php endif; ?>
                                 </div>
-                                <div class="comment-text"><?= nl2br(htmlspecialchars($c['content'])) ?></div>
+                                <div style="font-size:0.9rem;color:var(--text-soft);line-height:1.6;">
+                                    <?= nl2br(htmlspecialchars($c['content'])) ?>
+                                </div>
                             </div>
                         </div>
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
-        </div>
+        </section>
     </div>
 </main>
 
