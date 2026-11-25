@@ -338,6 +338,17 @@ include __DIR__ . '/includes/header.php';
     const avatarInput = document.getElementById('avatarInput');
     const previewWrap = document.getElementById('newAvatarPreviewWrap');
     const previewImg  = document.getElementById('newAvatarPreviewImg');
+    const resetCb     = document.querySelector('input[name="reset_avatar"]');
+
+    if (resetCb && avatarInput && previewWrap) {
+        resetCb.addEventListener('change', function() {
+            if (this.checked) {
+                avatarInput.value = '';
+                previewWrap.style.display = 'none';
+            }
+        });
+    }
+
     if (avatarInput && previewWrap && previewImg) {
         avatarInput.addEventListener('change', function() {
             const file = this.files && this.files[0];
@@ -348,6 +359,7 @@ include __DIR__ . '/includes/header.php';
                 previewWrap.style.display = 'none';
                 return;
             }
+            if (resetCb) resetCb.checked = false;
             const reader = new FileReader();
             reader.onload = e => { previewImg.src = e.target.result; previewWrap.style.display = 'flex'; };
             reader.readAsDataURL(file);

@@ -184,6 +184,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
+            $albumIdsStmt = $pdo->prepare("SELECT id FROM albums WHERE user_id = ?");
+            $albumIdsStmt->execute([$id]);
+            $albumIds = $albumIdsStmt->fetchAll(PDO::FETCH_COLUMN);
+            if (!empty($albumIds)) {
+                $ph = implode(',', array_fill(0, count($albumIds), '?'));
+                $pdo->prepare("DELETE FROM comments WHERE target_type = 'album' AND target_id IN ($ph)")->execute($albumIds);
+                $pdo->prepare("DELETE FROM likes WHERE target_type = 'album' AND target_id IN ($ph)")->execute($albumIds);
+            }
+
+            $storyIdsStmt = $pdo->prepare("SELECT id FROM stories WHERE user_id = ?");
+            $storyIdsStmt->execute([$id]);
+            $storyIds = $storyIdsStmt->fetchAll(PDO::FETCH_COLUMN);
+            if (!empty($storyIds)) {
+                $ph = implode(',', array_fill(0, count($storyIds), '?'));
+                $pdo->prepare("DELETE FROM comments WHERE target_type = 'story' AND target_id IN ($ph)")->execute($storyIds);
+                $pdo->prepare("DELETE FROM likes WHERE target_type = 'story' AND target_id IN ($ph)")->execute($storyIds);
+            }
+
+            $chatIdsStmt = $pdo->prepare("SELECT id FROM chat_messages WHERE user_id = ?");
+            $chatIdsStmt->execute([$id]);
+            $chatIds = $chatIdsStmt->fetchAll(PDO::FETCH_COLUMN);
+            if (!empty($chatIds)) {
+                $ph = implode(',', array_fill(0, count($chatIds), '?'));
+                $pdo->prepare("UPDATE chat_messages SET reply_to_id = NULL WHERE reply_to_id IN ($ph)")->execute($chatIds);
+            }
+
+            $pdo->prepare("DELETE FROM announcements WHERE user_id = ?")->execute([$id]);
             $pdo->prepare("DELETE FROM chat_messages WHERE user_id = ?")->execute([$id]);
             $pdo->prepare("DELETE FROM comments WHERE user_id = ?")->execute([$id]);
             $pdo->prepare("DELETE FROM likes WHERE user_id = ?")->execute([$id]);
@@ -210,7 +237,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $st->execute([$user['id']]);
         $hash = $st->fetchColumn();
 
-        if (!$hash || !password_verify($oldPass, $hash)) {
+        if (!$hash || !verifyUserPassword($pdo, (int)$user['id'], $oldPass, (string)$hash)) {
             safeRedirect('admin.php?tab=keamanan&err=' . urlencode('Kata sandi lama tidak sesuai.'));
         }
 
@@ -674,21 +701,31 @@ include __DIR__ . '/includes/header.php';
                     <input type="hidden" name="admin_action" value="change_my_password">
                     <div class="form-group">
                         <label for="old_password">Kata Sandi Lama</label>
-                        <input type="password" id="old_password" name="old_password" required autocomplete="current-password">
+                        <div class="input-wrap">
+                            <input type="password" id="old_password" name="old_password" required autocomplete="current-password">
+                            <button type="button" class="pw-toggle" data-pw-target="old_password" aria-label="Tampilkan sandi"><?= svgIcon('eye', 18) ?></button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="new_password">Kata Sandi Baru</label>
-                        <input type="password" id="new_password" name="new_password" required minlength="6" autocomplete="new-password">
+                        <div class="input-wrap">
+                            <input type="password" id="new_password" name="new_password" required minlength="6" autocomplete="new-password">
+                            <button type="button" class="pw-toggle" data-pw-target="new_password" aria-label="Tampilkan sandi"><?= svgIcon('eye', 18) ?></button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="confirm">Konfirmasi Kata Sandi Baru</label>
-                        <input type="password" id="confirm" name="confirm" required minlength="6" autocomplete="new-password">
+                        <div class="input-wrap">
+                            <input type="password" id="confirm" name="confirm" required minlength="6" autocomplete="new-password">
+                            <button type="button" class="pw-toggle" data-pw-target="confirm" aria-label="Tampilkan sandi"><?= svgIcon('eye', 18) ?></button>
+                        </div>
                     </div>
                     <button type="submit" class="btn btn-primary"><?= svgIcon('shield', 16) ?> Simpan Kata Sandi Baru</button>
                 </form>
             </div>
         </div>
     </div>
+</main>
 
     <!-- Modal Buat Akun Baru -->
     <div class="modal" id="modalBuatAkun">
@@ -763,7 +800,6 @@ include __DIR__ . '/includes/header.php';
             </form>
         </div>
     </div>
-</main>
 
 <script>
 (function() {
@@ -778,6 +814,17 @@ include __DIR__ . '/includes/header.php';
                 modal.classList.add('open');
                 document.body.style.overflow = 'hidden';
             }
+        });
+    });
+
+    document.querySelectorAll('.pw-toggle[data-pw-target]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const input = document.getElementById(btn.getAttribute('data-pw-target'));
+            if (!input) return;
+            const show = input.type === 'password';
+            input.type = show ? 'text' : 'password';
+            btn.classList.toggle('is-visible', show);
+            btn.setAttribute('aria-label', show ? 'Sembunyikan sandi' : 'Tampilkan sandi');
         });
     });
 })();

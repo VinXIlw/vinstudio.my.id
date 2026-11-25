@@ -128,6 +128,7 @@ include __DIR__ . '/includes/header.php';
     let isFirstLoad   = true;
     let isFetching    = false;
     let soundEnabled  = localStorage.getItem('vinstudio_chat_sound') !== 'off';
+    let sharedAudioCtx = null;
 
     function getToken() {
         return window.getCsrfToken ? window.getCsrfToken() : '';
@@ -149,18 +150,25 @@ include __DIR__ . '/includes/header.php';
     function playNotificationPop() {
         if (!soundEnabled) return;
         try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            if (!sharedAudioCtx) {
+                sharedAudioCtx = new AudioCtx();
+            }
+            if (sharedAudioCtx.state === 'suspended') {
+                sharedAudioCtx.resume().catch(() => {});
+            }
+            const osc = sharedAudioCtx.createOscillator();
+            const gain = sharedAudioCtx.createGain();
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(580, ctx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(860, ctx.currentTime + 0.08);
-            gain.gain.setValueAtTime(0.06, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.14);
+            osc.frequency.setValueAtTime(580, sharedAudioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(860, sharedAudioCtx.currentTime + 0.08);
+            gain.gain.setValueAtTime(0.06, sharedAudioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, sharedAudioCtx.currentTime + 0.14);
             osc.connect(gain);
-            gain.connect(ctx.destination);
+            gain.connect(sharedAudioCtx.destination);
             osc.start();
-            osc.stop(ctx.currentTime + 0.15);
+            osc.stop(sharedAudioCtx.currentTime + 0.15);
         } catch (e) {}
     }
 
@@ -389,6 +397,11 @@ include __DIR__ . '/includes/header.php';
     });
 
     if (chatInput && sendForm) {
+        chatInput.addEventListener('input', function() {
+            chatInput.style.height = 'auto';
+            chatInput.style.height = Math.min(chatInput.scrollHeight, 110) + 'px';
+        });
+
         chatInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -404,16 +417,21 @@ include __DIR__ . '/includes/header.php';
             const btn = document.getElementById('chatSendBtn');
             if (btn) btn.disabled = true;
 
+            const savedReplyId   = replyToInput ? replyToInput.value : '';
+            const savedReplyUser = replyUserEl ? replyUserEl.textContent : '';
+            const savedReplyText = replyTextEl ? replyTextEl.textContent : '';
+
             const token = getToken();
             const fd = new FormData();
             fd.append('action', 'send');
             fd.append('message', text);
             fd.append('csrf_token', token);
-            if (replyToInput && replyToInput.value) {
-                fd.append('reply_to_id', replyToInput.value);
+            if (savedReplyId) {
+                fd.append('reply_to_id', savedReplyId);
             }
 
             chatInput.value = '';
+            chatInput.style.height = 'auto';
             clearReply();
 
             try {
@@ -428,10 +446,14 @@ include __DIR__ . '/includes/header.php';
                         messagesList.appendChild(buildMessageElement(m));
                     }
                     scrollToBottom(true);
-                } else if (data && data.error) {
-                    if (window.showToast) window.showToast(data.error, 'error');
+                } else {
+                    chatInput.value = text;
+                    if (savedReplyId) setReply(savedReplyId, savedReplyUser, savedReplyText);
+                    if (window.showToast) window.showToast((data && data.error) ? data.error : 'Gagal mengirim pesan.', 'error');
                 }
             } catch (err) {
+                chatInput.value = text;
+                if (savedReplyId) setReply(savedReplyId, savedReplyUser, savedReplyText);
                 if (window.showToast) window.showToast('Gagal mengirim pesan.', 'error');
             } finally {
                 if (btn) btn.disabled = false;

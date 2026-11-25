@@ -11,6 +11,10 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 $user   = currentUser();
 $action = $_REQUEST['action'] ?? 'fetch';
 
+if ($action === 'fetch') {
+    session_write_close();
+}
+
 function formatChatMessage(array $row, ?array $currentUser): array {
     $isMine  = $currentUser && ((int)$row['user_id'] === (int)$currentUser['id']);
     $isAdmin = $currentUser && ($currentUser['role'] === 'admin');

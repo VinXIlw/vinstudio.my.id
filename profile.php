@@ -102,7 +102,7 @@ include __DIR__ . '/includes/header.php';
                 <article class="album-card">
                     <a href="album-detail.php?id=<?= (int)$a['id'] ?>" class="album-link">
                         <div class="album-img-wrap">
-                            <img src="<?= (!empty($a['photo']) && $a['photo'] !== 'no-image.png') ? 'uploads/' . htmlspecialchars(basename($a['photo'])) : 'img/placeholder.svg' ?>"
+                            <img src="<?= albumPhotoUrl($a['photo'] ?? null) ?>"
                                  alt="<?= htmlspecialchars($a['title']) ?>" loading="lazy" onerror="this.onerror=null;this.src='img/placeholder.svg';">
                             <span class="album-cat-pill"><?= htmlspecialchars($a['category'] ?: 'Dokumentasi') ?></span>
                         </div>

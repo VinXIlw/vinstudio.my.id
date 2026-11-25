@@ -22,7 +22,9 @@ if ($editId > 0) {
 $pageTitle = $editingData ? 'Edit Karya Galeri' : 'Unggah Karya Baru';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!verifyCsrfToken()) {
+    if (empty($_POST) && empty($_FILES) && (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+        $error = 'Ukuran berkas terlalu besar untuk diproses server. Gunakan foto maksimal 5 MB.';
+    } elseif (!verifyCsrfToken()) {
         $error = 'Token keamanan tidak valid. Silakan muat ulang halaman.';
     } else {
         $title       = trim($_POST['title'] ?? '');
@@ -133,7 +135,7 @@ include __DIR__ . '/includes/header.php';
                 <input type="file" id="photo" name="photo" accept="image/jpeg,image/png,image/webp,image/gif" <?= !$editingData ? 'required' : '' ?>>
                 <div id="albumLivePreviewWrap" style="<?= ($editingData && !empty($editingData['photo']) && $editingData['photo'] !== 'no-image.png') ? 'display:block;' : 'display:none;' ?>margin-top:0.85rem;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);background:#070b14;max-height:300px;text-align:center;">
                     <img id="albumLivePreviewImg"
-                         src="<?= ($editingData && !empty($editingData['photo']) && $editingData['photo'] !== 'no-image.png') ? 'uploads/' . htmlspecialchars(basename($editingData['photo'])) : '' ?>"
+                         src="<?= ($editingData && !empty($editingData['photo']) && $editingData['photo'] !== 'no-image.png') ? albumPhotoUrl($editingData['photo']) : '' ?>"
                          alt="Pratinjau" style="max-height:300px;width:auto;margin:0 auto;object-fit:contain;">
                 </div>
             </div>

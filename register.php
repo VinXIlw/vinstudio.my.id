@@ -118,7 +118,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <section class="auth-form-panel">
             <div class="auth-panel-top">
                 <a href="index.php" class="btn btn-ghost btn-sm"><?= svgIcon('arrow-left', 16) ?> Beranda</a>
-                <span class="mono-tag">MEMBER ONBOARDING</span>
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <span class="mono-tag">MEMBER ONBOARDING</span>
+                    <button type="button" id="authThemeToggle" class="theme-toggle-btn" style="width:34px;height:34px;border-color:var(--border-strong);background:var(--lighter);color:var(--dark);" aria-label="Ganti Tema Gelap / Terang" title="Mode Gelap / Terang">
+                        <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                        <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                    </button>
+                </div>
             </div>
 
             <div class="auth-form-head">
@@ -166,14 +172,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="form-row-2">
                     <div class="form-group">
                         <label for="password">Kata Sandi <span class="required">*</span></label>
-                        <input type="password" id="password" name="password" required minlength="6" autocomplete="new-password"
-                               placeholder="Min. 6 karakter">
+                        <div class="input-wrap">
+                            <input type="password" id="password" name="password" required minlength="6" autocomplete="new-password"
+                                   placeholder="Min. 6 karakter">
+                            <button type="button" class="pw-toggle" data-pw-target="password" aria-label="Tampilkan kata sandi">
+                                <?= svgIcon('eye', 16) ?>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="form-group">
                         <label for="confirm">Ulangi Kata Sandi <span class="required">*</span></label>
-                        <input type="password" id="confirm" name="confirm" required minlength="6" autocomplete="new-password"
-                               placeholder="Ketik ulang sandi">
+                        <div class="input-wrap">
+                            <input type="password" id="confirm" name="confirm" required minlength="6" autocomplete="new-password"
+                                   placeholder="Ketik ulang sandi">
+                            <button type="button" class="pw-toggle" data-pw-target="confirm" aria-label="Tampilkan kata sandi">
+                                <?= svgIcon('eye', 16) ?>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -210,6 +226,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (!v) { meter.className = 'pw-meter'; hint.textContent = ''; return; }
                     meter.className = 'pw-meter is-' + Math.max(1, s);
                     hint.textContent = 'Kekuatan sandi: ' + labels[s];
+                });
+            }
+            document.querySelectorAll('[data-pw-target]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var target = document.getElementById(btn.getAttribute('data-pw-target'));
+                    if (target) target.type = target.type === 'password' ? 'text' : 'password';
+                });
+            });
+            var tBtn = document.getElementById('authThemeToggle');
+            if (tBtn) {
+                tBtn.addEventListener('click', function() {
+                    var root = document.documentElement;
+                    var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                    root.setAttribute('data-theme', next);
+                    try { localStorage.setItem('vinstudio_theme', next); } catch (e) {}
                 });
             }
         })();

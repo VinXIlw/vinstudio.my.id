@@ -261,7 +261,7 @@ include __DIR__ . '/includes/header.php';
                 <article class="album-card">
                     <a href="album-detail.php?id=<?= (int)$album['id'] ?>" class="album-link">
                         <div class="album-img-wrap">
-                            <img src="<?= (!empty($album['photo']) && $album['photo'] !== 'no-image.png') ? 'uploads/' . htmlspecialchars(basename($album['photo'])) : 'img/placeholder.svg' ?>"
+                            <img src="<?= albumPhotoUrl($album['photo'] ?? null) ?>"
                                  alt="<?= htmlspecialchars($album['title']) ?>" loading="lazy"
                                  onerror="this.onerror=null;this.src='img/placeholder.svg';">
                             <span class="album-cat-pill"><?= htmlspecialchars($album['category'] ?: 'Dokumentasi') ?></span>
@@ -530,7 +530,7 @@ include __DIR__ . '/includes/header.php';
             if (Array.isArray(data.messages) && data.messages.length > 0) {
                 previewList.innerHTML = data.messages.map(function(m) {
                     const delBtn = m.can_delete
-                        ? `<button type="button" class="preview-del-btn" data-home-del="${m.id}" title="Hapus pesan">&times;</button>`
+                        ? `<button type="button" class="preview-del-btn" data-home-del="${m.id}" title="Hapus pesan" aria-label="Hapus pesan"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>`
                         : '';
                     const av = m.avatar
                         ? `<img src="uploads/${escapeHtml(m.avatar)}" class="user-avatar-img" style="width:32px;height:32px;" alt="">`
@@ -568,10 +568,16 @@ include __DIR__ . '/includes/header.php';
         fd.append('id', btn.getAttribute('data-home-del'));
         fd.append('csrf_token', token);
         try {
-            await fetch('chat-api.php', { method: 'POST', headers: { 'X-CSRF-Token': token }, body: fd });
-            await refreshHomeChat();
-            if (window.showToast) window.showToast('Pesan dihapus.', 'success');
-        } catch (err) {}
+            const res = await fetch('chat-api.php', { method: 'POST', headers: { 'X-CSRF-Token': token }, body: fd });
+            if (res.ok) {
+                await refreshHomeChat();
+                if (window.showToast) window.showToast('Pesan dihapus.', 'success');
+            } else {
+                if (window.showToast) window.showToast('Gagal menghapus pesan.', 'error');
+            }
+        } catch (err) {
+            if (window.showToast) window.showToast('Koneksi bermasalah saat menghapus pesan.', 'error');
+        }
     });
 
     refreshHomeChat();

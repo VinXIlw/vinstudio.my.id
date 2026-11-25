@@ -228,22 +228,33 @@ function resolveSecureSqlitePath(string &$vaultModeOut): string {
 }
 
 // ============================================================================
-// 8. KONEKSI PDO (MySQL Primary -> Secure SQLite Vault Fallback)
+// 8. KONEKSI PDO (MySQL Eksplisit -> Secure SQLite Vault Fallback)
 // ============================================================================
 $pdo = null;
-$dbDriver = 'mysql';
-$dbVaultMode = 'mysql-server';
+$dbDriver = 'sqlite';
+$dbVaultMode = 'locked-storage-vault';
+$hasExplicitMysql = !empty($APP_ENV_VARS['DB_NAME'])
+    && !empty($APP_ENV_VARS['DB_USER'])
+    && (($APP_ENV_VARS['DB_DRIVER'] ?? 'mysql') !== 'sqlite');
 
-try {
-    // Hanya coba koneksi MySQL jika password diisi atau di konfigurasi eksplisit
-    $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
-    $pdo = new PDO($dsn, DB_USER, DB_PASS, [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES   => false,
-    ]);
-} catch (PDOException $e) {
-    $dbDriver = 'sqlite';
+if ($hasExplicitMysql) {
+    try {
+        $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+        $pdo = new PDO($dsn, DB_USER, DB_PASS, [
+            PDO::ATTR_TIMEOUT            => 2,
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ]);
+        $dbDriver    = 'mysql';
+        $dbVaultMode = 'mysql-server';
+    } catch (PDOException $e) {
+        $pdo = null;
+        $dbDriver = 'sqlite';
+    }
+}
+
+if ($pdo === null) {
     $sqliteVaultPath = resolveSecureSqlitePath($dbVaultMode);
     try {
         $pdo = new PDO("sqlite:" . $sqliteVaultPath, null, null, [
@@ -276,17 +287,29 @@ if (isset($_SESSION['user_id'])) {
             $uRow = $stmtSync->fetch();
             if (!$uRow || (int)$uRow['is_banned'] === 1) {
                 $_SESSION = [];
+                if (ini_get('session.use_cookies')) {
+                    $p = session_get_cookie_params();
+                    setcookie(session_name(), '', time() - 42000, $p['path'], $p['domain'], $p['secure'], $p['httponly']);
+                }
                 session_destroy();
-                header("Location: login.php?err=" . urlencode("Sesi berakhir atau akun dinonaktifkan."));
-                exit;
-            }
-            $_SESSION['display_name'] = $uRow['display_name'];
-            $_SESSION['role']         = $uRow['role'];
-            $_SESSION['avatar']       = $uRow['avatar'];
-            $_SESSION['bio']          = $uRow['bio'] ?? '';
-            $_SESSION['specialty']    = $uRow['specialty'] ?? '';
+                session_start();
 
-            $pdo->prepare("UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$_SESSION['user_id']]);
+                $scriptName = basename($_SERVER['SCRIPT_NAME'] ?? '');
+                $isApiReq   = in_array($scriptName, ['chat-api.php', 'like.php'], true)
+                    || (strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false);
+                if (!$isApiReq) {
+                    header("Location: login.php?err=" . urlencode("Sesi berakhir atau akun dinonaktifkan."));
+                    exit;
+                }
+            } else {
+                $_SESSION['display_name'] = $uRow['display_name'];
+                $_SESSION['role']         = $uRow['role'];
+                $_SESSION['avatar']       = $uRow['avatar'];
+                $_SESSION['bio']          = $uRow['bio'] ?? '';
+                $_SESSION['specialty']    = $uRow['specialty'] ?? '';
+
+                $pdo->prepare("UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$_SESSION['user_id']]);
+            }
         } catch (Exception $e) {}
     }
 }
@@ -511,6 +534,20 @@ function verifyCsrfToken(?string $token = null): bool {
 }
 
 function requireCsrf(bool $jsonResponse = false, string $redirectFallback = 'index.php'): void {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_POST) && empty($_FILES) && (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+        $overflowMsg = 'Ukuran berkas terlalu besar (melebihi batas server). Gunakan gambar maksimal 5 MB.';
+        if ($jsonResponse) {
+            http_response_code(413);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => false, 'error' => $overflowMsg]);
+            exit;
+        }
+        $back = sanitizeReturnUrl($redirectFallback, 'index.php');
+        $sep  = (strpos($back, '?') !== false) ? '&' : '?';
+        header("Location: {$back}{$sep}err=" . urlencode($overflowMsg));
+        exit;
+    }
+
     if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !verifyCsrfToken()) {
         if ($jsonResponse) {
             http_response_code(403);
@@ -570,16 +607,45 @@ function clearRateLimit(PDO $pdo, string $actionKey): void {
 function sanitizeReturnUrl(?string $url, string $fallback = 'index.php'): string {
     if (!is_string($url)) return $fallback;
     $url = trim($url);
-    if ($url === '' || $url[0] === '/' && isset($url[1]) && $url[1] === '/') return $fallback;
+    if ($url === '' || ($url[0] === '/' && isset($url[1]) && $url[1] === '/')) return $fallback;
     if (preg_match('/^[a-zA-Z][a-zA-Z0-9+\-.]*:/', $url)) return $fallback;
     if (strpos($url, "\r") !== false || strpos($url, "\n") !== false || strpos($url, '\\') !== false) return $fallback;
-    $clean = ltrim($url, '/');
-    return $clean !== '' ? $clean : $fallback;
+
+    $parts = parse_url(ltrim($url, '/'));
+    if (!is_array($parts)) return $fallback;
+
+    $file = basename($parts['path'] ?? '');
+    if ($file === '') $file = 'index.php';
+    if (!preg_match('/^[a-zA-Z0-9_\-]+\.php$/', $file) || in_array($file, ['config.php', 'logout.php'], true)) {
+        return $fallback;
+    }
+
+    return $file . (isset($parts['query']) && $parts['query'] !== '' ? '?' . $parts['query'] : '');
 }
 
 function safeRedirect(?string $url, string $fallback = 'index.php'): void {
     header('Location: ' . sanitizeReturnUrl($url, $fallback));
     exit;
+}
+
+function verifyUserPassword(PDO $pdo, int $userId, string $plainPassword, string $storedHash): bool {
+    if ($storedHash !== '' && password_verify($plainPassword, $storedHash)) {
+        if (password_needs_rehash($storedHash, PASSWORD_DEFAULT)) {
+            try {
+                $rehash = password_hash($plainPassword, PASSWORD_DEFAULT);
+                $pdo->prepare("UPDATE users SET password = ? WHERE id = ?")->execute([$rehash, $userId]);
+            } catch (Exception $e) {}
+        }
+        return true;
+    }
+    if ($storedHash !== '' && strpos($storedHash, '$2') !== 0 && strpos($storedHash, '$argon') !== 0 && hash_equals($storedHash, $plainPassword)) {
+        try {
+            $rehash = password_hash($plainPassword, PASSWORD_DEFAULT);
+            $pdo->prepare("UPDATE users SET password = ? WHERE id = ?")->execute([$rehash, $userId]);
+        } catch (Exception $e) {}
+        return true;
+    }
+    return false;
 }
 
 // ============================================================================
@@ -620,8 +686,11 @@ function currentUser(): ?array {
 
 function requireLogin(): void {
     if (!currentUser()) {
-        $req = basename($_SERVER['REQUEST_URI'] ?? 'index.php');
-        $target = sanitizeReturnUrl($req, 'index.php');
+        $rawUri   = $_SERVER['REQUEST_URI'] ?? 'index.php';
+        $uriPath  = basename((string)parse_url($rawUri, PHP_URL_PATH)) ?: 'index.php';
+        $uriQuery = (string)parse_url($rawUri, PHP_URL_QUERY);
+        $req      = $uriPath . ($uriQuery !== '' ? '?' . $uriQuery : '');
+        $target   = sanitizeReturnUrl($req, 'index.php');
         header("Location: login.php?msg=" . urlencode("Silakan masuk terlebih dahulu.") . "&r=" . urlencode($target));
         exit;
     }
@@ -815,9 +884,18 @@ function avatarClass(?string $name): string {
     return 'avatar-' . ($sum % 5);
 }
 
+function albumPhotoUrl(?string $photo): string {
+    $clean = $photo ? basename($photo) : '';
+    if ($clean !== '' && $clean !== 'no-image.png' && is_file(__DIR__ . '/uploads/' . $clean)) {
+        return 'uploads/' . htmlspecialchars($clean, ENT_QUOTES, 'UTF-8');
+    }
+    return 'img/placeholder.svg';
+}
+
 function readingTime(?string $text): string {
-    $words = str_word_count(strip_tags((string)$text));
-    $mins  = max(1, (int)ceil($words / 185));
+    $trimmed = trim(strip_tags((string)$text));
+    $words   = $trimmed === '' ? 0 : count(preg_split('/\s+/u', $trimmed, -1, PREG_SPLIT_NO_EMPTY));
+    $mins    = max(1, (int)ceil($words / 185));
     return $mins . ' mnt baca';
 }
 

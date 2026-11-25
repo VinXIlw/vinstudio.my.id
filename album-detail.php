@@ -76,7 +76,7 @@ include __DIR__ . '/includes/header.php';
 
         <!-- Hero Pratinjau Gambar Resolusi Tinggi -->
         <div class="detail-hero page-anim">
-            <img src="<?= (!empty($album['photo']) && $album['photo'] !== 'no-image.png') ? 'uploads/' . htmlspecialchars(basename($album['photo'])) : 'img/placeholder.svg' ?>"
+            <img src="<?= albumPhotoUrl($album['photo'] ?? null) ?>"
                  alt="<?= htmlspecialchars($album['title']) ?>"
                  data-lightbox
                  onerror="this.onerror=null;this.src='img/placeholder.svg';">

@@ -42,6 +42,7 @@ include __DIR__ . '/includes/header.php';
         <?php endif; ?>
     </div>
 
+    <?php if (!empty($albums)): ?>
     <!-- Toolbar Pencarian & Pengurutan -->
     <div class="toolbar page-anim">
         <div class="search-box">
@@ -69,7 +70,6 @@ include __DIR__ . '/includes/header.php';
         <?php endforeach; ?>
     </div>
 
-    <?php if (!empty($albums)): ?>
     <div class="album-grid page-anim" id="albumsContainer">
         <?php foreach ($albums as $album): ?>
         <article class="album-card"
@@ -79,7 +79,7 @@ include __DIR__ . '/includes/header.php';
                  data-time="<?= strtotime($album['created_at'] ?? '') ?: 0 ?>">
             <a href="album-detail.php?id=<?= (int)$album['id'] ?>" class="album-link">
                 <div class="album-img-wrap">
-                    <img src="<?= (!empty($album['photo']) && $album['photo'] !== 'no-image.png') ? 'uploads/' . htmlspecialchars(basename($album['photo'])) : 'img/placeholder.svg' ?>"
+                    <img src="<?= albumPhotoUrl($album['photo'] ?? null) ?>"
                          alt="<?= htmlspecialchars($album['title']) ?>" loading="lazy"
                          onerror="this.onerror=null;this.src='img/placeholder.svg';">
                     <span class="album-cat-pill"><?= htmlspecialchars($album['category'] ?: 'Dokumentasi Kelas') ?></span>

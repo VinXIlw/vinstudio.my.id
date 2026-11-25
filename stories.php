@@ -42,6 +42,7 @@ include __DIR__ . '/includes/header.php';
         <?php endif; ?>
     </div>
 
+    <?php if (!empty($stories)): ?>
     <!-- Toolbar Pencarian & Pengurutan -->
     <div class="toolbar page-anim">
         <div class="search-box">
@@ -68,8 +69,6 @@ include __DIR__ . '/includes/header.php';
             <button type="button" class="cat-chip" data-cat="<?= htmlspecialchars($cat) ?>"><?= htmlspecialchars($cat) ?></button>
         <?php endforeach; ?>
     </div>
-
-    <?php if (!empty($stories)): ?>
     <div class="story-grid page-anim" id="storiesContainer">
         <?php foreach ($stories as $story): ?>
         <article class="story-card"

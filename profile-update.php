@@ -90,7 +90,7 @@ if ($action === 'change_password') {
     $stmtCheck->execute([$user['id']]);
     $storedHash = $stmtCheck->fetchColumn();
 
-    if (!$storedHash || !password_verify($currentPass, $storedHash)) {
+    if (!$storedHash || !verifyUserPassword($pdo, (int)$user['id'], $currentPass, (string)$storedHash)) {
         recordRateLimit($pdo, 'pw_change_' . $user['id']);
         logActivity($pdo, $user['id'], $user['email'], $user['displayName'], 'profile:password-fail', 'Kata sandi lama salah');
         safeRedirect('dashboard.php?tab=keamanan&err=' . urlencode('Kata sandi saat ini tidak sesuai.'));

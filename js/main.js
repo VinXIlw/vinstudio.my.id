@@ -220,6 +220,9 @@
             if (nextActive) {
                 links.forEach(l => l.classList.toggle('active', l === nextActive));
                 applyGlider(nextActive, animate !== false);
+            } else {
+                links.forEach(l => l.classList.remove('active'));
+                glider.style.opacity = '0';
             }
 
             const menuBtn = $('.mobile-menu-btn');
@@ -231,10 +234,15 @@
             return { prevIdx, nextIdx, dir };
         };
 
-        window.addEventListener('resize', function () {
+        function realignNavGlider() {
             const cur = links.find(l => l.classList.contains('active'));
             if (cur) applyGlider(cur, false);
-        });
+        }
+        window.addEventListener('resize', realignNavGlider);
+        window.addEventListener('load', realignNavGlider);
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(realignNavGlider);
+        }
     }
 
     /* ---------------------------------------------------------
@@ -303,6 +311,7 @@
 
                 if (countEl) countEl.textContent = visible + ' ' + unitLabel;
                 if (emptyEl) emptyEl.style.display = visible === 0 ? '' : 'none';
+                grid.style.display = visible === 0 ? 'none' : '';
             }
 
             if (searchInp) {
@@ -356,10 +365,15 @@
                 });
             });
 
-            window.addEventListener('resize', function () {
+            function realignSortGlider() {
                 const cur = btns.find(b => b.classList.contains('active'));
                 if (cur) moveSortGlider(cur, false);
-            });
+            }
+            window.addEventListener('resize', realignSortGlider);
+            window.addEventListener('load', realignSortGlider);
+            if (document.fonts && document.fonts.ready) {
+                document.fonts.ready.then(realignSortGlider);
+            }
         });
     }
 
@@ -442,6 +456,7 @@
         const res = await fetch(urlStr, {
             method: 'GET',
             credentials: 'same-origin',
+            cache: 'no-store',
             headers: { 'X-PJAX': 'true', 'Accept': 'text/html' }
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -458,10 +473,18 @@
         try {
             const u = new URL(urlStr, window.location.origin);
             if (!isPjaxEligibleUrl(u)) return;
+            const file = u.pathname.split('/').pop() || 'index.php';
+            if (file === 'chat.php') return;
             const now = Date.now();
             if (pjaxCache.has(u.href) && (now - pjaxCache.get(u.href).time < PJAX_TTL)) return;
             fetchPageHtml(u.href, false).catch(() => {});
         } catch (e) {}
+    }
+
+    function normalizeComparableUrl(u) {
+        let p = u.pathname || '/';
+        if (p === '/' || p.endsWith('/')) p += 'index.php';
+        return u.origin + p + u.search;
     }
 
     function runCleanupFns() {
@@ -476,13 +499,6 @@
         if (!stage) return;
 
         let activeNavRequest = 0;
-
-        setTimeout(function () {
-            ['index.php', 'profile.php', 'albums.php', 'stories.php', 'chat.php'].forEach(function (page) {
-                const u = new URL(page, window.location.href);
-                if (u.href !== window.location.href) prefetchUrl(u.href);
-            });
-        }, 320);
 
         document.addEventListener('mouseover', function (e) {
             const link = e.target.closest('a');
@@ -511,7 +527,7 @@
             const url = new URL(link.href, window.location.href);
             if (!isPjaxEligibleUrl(url)) return;
 
-            if (url.href === window.location.href) {
+            if (normalizeComparableUrl(url) === normalizeComparableUrl(new URL(window.location.href))) {
                 e.preventDefault();
                 if (syncNavToUrl) syncNavToUrl(url.href, true);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -558,12 +574,28 @@
                     return;
                 }
 
-                // Sinkronkan token CSRF terbaru dari dokumen baru jika ada
+                // Sinkronkan token CSRF & pil profil header dari dokumen baru jika ada
                 const newCsrf = doc.querySelector('meta[name="csrf-token"]');
                 const curCsrf = $('meta[name="csrf-token"]');
                 if (newCsrf && curCsrf) {
                     curCsrf.setAttribute('content', newCsrf.getAttribute('content') || '');
                 }
+
+                const newUserPill = doc.querySelector('.nav-user-pill');
+                const curUserPill = $('.nav-user-pill');
+                if (newUserPill && curUserPill) {
+                    curUserPill.innerHTML = newUserPill.innerHTML;
+                    curUserPill.title = newUserPill.title;
+                }
+
+                // Reset body scroll lock, modal, & lightbox sebelum swap halaman
+                document.body.style.overflow = '';
+                const lb = $('#imageLightbox');
+                if (lb && lb.classList.contains('open')) {
+                    lb.classList.remove('open');
+                    lb.setAttribute('aria-hidden', 'true');
+                }
+                $$('.modal.open').forEach(m => m.classList.remove('open'));
 
                 runCleanupFns();
 
@@ -580,6 +612,9 @@
 
                 void curStage.offsetWidth;
                 curStage.setAttribute('data-slide-dir', slideDir);
+                setTimeout(function () {
+                    if (curStage) curStage.removeAttribute('data-slide-dir');
+                }, 380);
 
                 const floatingRoot = $('#floatingChatRoot');
                 if (floatingRoot) {
@@ -684,10 +719,15 @@
             if (initial) activate(initial, false, false);
             if (tabsNav) tabsNav.classList.add('has-glider');
 
-            window.addEventListener('resize', function () {
+            function realignTabGlider() {
                 const cur = buttons.find(b => b.classList.contains('active'));
                 if (cur) updateTabGlider(cur, false);
-            });
+            }
+            window.addEventListener('resize', realignTabGlider);
+            window.addEventListener('load', realignTabGlider);
+            if (document.fonts && document.fonts.ready) {
+                document.fonts.ready.then(realignTabGlider);
+            }
         });
     }
 
@@ -836,11 +876,25 @@
     window.showToast = showToast;
 
     function initToasts(ctx) {
+        let hasInlineAlert = false;
         $$('.alert', ctx).forEach(function (alert) {
+            if (alert.closest('#pjaxStage')) {
+                hasInlineAlert = true;
+                return;
+            }
             if (alert.dataset.toasted === '1') return;
             alert.dataset.toasted = '1';
             showToast(alert.textContent.trim(), alert.classList.contains('alert-error') ? 'error' : 'success');
         });
+
+        if (hasInlineAlert && window.history && window.history.replaceState) {
+            const u = new URL(window.location.href);
+            if (u.searchParams.has('msg') || u.searchParams.has('err')) {
+                u.searchParams.delete('msg');
+                u.searchParams.delete('err');
+                window.history.replaceState({ url: u.href }, '', u.href);
+            }
+        }
     }
 
     function initCounterAnimation(ctx) {
@@ -905,11 +959,17 @@
             const btn = e.target.closest('[data-share-url]');
             if (!btn) return;
             e.preventDefault();
-            const url = btn.getAttribute('data-share-url') || window.location.href;
+            let rawUrl = btn.getAttribute('data-share-url');
+            if (!rawUrl) {
+                const u = new URL(window.location.href);
+                u.searchParams.delete('msg');
+                u.searchParams.delete('err');
+                rawUrl = u.href;
+            }
             if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(url).then(() => showToast('Tautan berhasil disalin ke papan klip!', 'success'));
+                navigator.clipboard.writeText(rawUrl).then(() => showToast('Tautan berhasil disalin ke papan klip!', 'success'));
             } else {
-                showToast('Tautan: ' + url, 'success');
+                showToast('Tautan: ' + rawUrl, 'success');
             }
         });
     }
@@ -946,9 +1006,10 @@
                 }
 
                 if (Array.isArray(data.messages) && data.messages.length > 0) {
+                    const trashSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
                     body.innerHTML = data.messages.map(function (m) {
                         const delBtn = m.can_delete
-                            ? `<button type="button" data-mini-del="${m.id}" style="background:none;border:none;color:#fb7185;cursor:pointer;font-size:0.72rem;" title="Hapus">&times;</button>`
+                            ? `<button type="button" data-mini-del="${m.id}" style="background:none;border:none;color:#fb7185;cursor:pointer;display:inline-flex;align-items:center;padding:2px;" title="Hapus">${trashSvg}</button>`
                             : '';
                         const miniAv = m.avatar
                             ? `<img src="uploads/${escapeHtml(m.avatar)}" class="user-avatar-img" style="width:20px;height:20px;margin-right:0.35rem;" alt="">`
@@ -983,10 +1044,16 @@
             fd.append('id', delBtn.getAttribute('data-mini-del'));
             fd.append('csrf_token', getCsrfToken());
             try {
-                await fetch('chat-api.php', { method: 'POST', headers: { 'X-CSRF-Token': getCsrfToken() }, body: fd });
-                pjaxCache.delete(new URL('index.php', window.location.origin).href);
-                await loadMiniChat(false);
-            } catch (err) {}
+                const res = await fetch('chat-api.php', { method: 'POST', headers: { 'X-CSRF-Token': getCsrfToken() }, body: fd });
+                if (res.ok) {
+                    pjaxCache.delete(new URL('index.php', window.location.origin).href);
+                    await loadMiniChat(false);
+                } else {
+                    showToast('Gagal menghapus pesan.', 'error');
+                }
+            } catch (err) {
+                showToast('Gagal menghubungi server.', 'error');
+            }
         });
 
         fab.addEventListener('click', function () {

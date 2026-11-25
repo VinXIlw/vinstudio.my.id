@@ -4,6 +4,7 @@
    ========================================================================== */
 
 :root {
+    color-scheme: light;
     --primary:        #6366f1;
     --primary-light:  #818cf8;
     --primary-dark:   #4f46e5;
@@ -54,6 +55,7 @@
 }
 
 html[data-theme="dark"] {
+    color-scheme: dark;
     --bg:             #070b14;
     --white:          #0f1626;
     --surface:        rgba(15, 22, 38, 0.78);
@@ -249,12 +251,14 @@ html:not([data-theme="dark"]) .site-header {
     background: linear-gradient(135deg, var(--primary), var(--secondary));
     color: #fff !important;
 }
-.main-nav ul.has-glider li > a.active,
-.main-nav ul.has-glider li > a.active:hover {
-    background: transparent !important;
-    border-color: transparent !important;
-    box-shadow: none !important;
-    color: #fff !important;
+@media (min-width: 821px) {
+    .main-nav ul.has-glider li > a.active,
+    .main-nav ul.has-glider li > a.active:hover {
+        background: transparent !important;
+        border-color: transparent !important;
+        box-shadow: none !important;
+        color: #fff !important;
+    }
 }
 
 .nav-hover-glider {
@@ -603,6 +607,10 @@ input:focus, select:focus, textarea:focus {
     border-color: var(--primary);
     background: var(--white);
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+}
+select option {
+    background-color: var(--white);
+    color: var(--dark);
 }
 textarea { min-height: 108px; resize: vertical; line-height: 1.65; }
 
@@ -1039,6 +1047,7 @@ html:not([data-theme="dark"]) .alert-error { color: #be123c; }
     max-width: 720px;
 }
 .hero-stat-badge {
+    min-width: 0;
     padding: 0.9rem 1rem;
     border-radius: var(--radius);
     background: rgba(255, 255, 255, 0.06);
@@ -2021,8 +2030,8 @@ html:not([data-theme="dark"]) .stat-icon { color: var(--primary-dark); }
 
 /* ---------- 14. ANIMATIONS & PJAX TRANSITIONS ---------- */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes cardEntrance { from { opacity: 0; transform: translateY(18px) scale(0.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes cardEntrance { from { opacity: 0; transform: translateY(18px) scale(0.985); } to { opacity: 1; transform: none; } }
 @keyframes pulseDot {
     0%   { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
     70%  { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
@@ -2040,11 +2049,11 @@ html:not([data-theme="dark"]) .stat-icon { color: var(--primary-dark); }
 }
 @keyframes pjaxEnterFromRight {
     0%   { opacity: 0; transform: translate3d(28px, 0, 0); }
-    100% { opacity: 1; transform: translate3d(0, 0, 0); }
+    100% { opacity: 1; transform: none; }
 }
 @keyframes pjaxEnterFromLeft {
     0%   { opacity: 0; transform: translate3d(-28px, 0, 0); }
-    100% { opacity: 1; transform: translate3d(0, 0, 0); }
+    100% { opacity: 1; transform: none; }
 }
 
 .page-anim { animation: fadeUp 0.42s var(--ease-out) both; }
@@ -2076,6 +2085,7 @@ html:not([data-theme="dark"]) .stat-icon { color: var(--primary-dark); }
     }
 
     .mobile-menu-btn { display: block; }
+    .nav-glider, .nav-hover-glider { display: none !important; }
     .main-nav ul {
         display: none;
         position: absolute;
@@ -2091,6 +2101,10 @@ html:not([data-theme="dark"]) .stat-icon { color: var(--primary-dark); }
     }
     .main-nav ul.active { display: flex; animation: fadeUp 0.2s var(--ease-out) both; }
     .main-nav li > a { width: 100%; padding: 0.65rem 0.9rem; }
+    .main-nav li > a.active {
+        background: linear-gradient(135deg, var(--primary), var(--secondary)) !important;
+        color: #fff !important;
+    }
     .nav-logout-item { margin: 0.25rem 0 0; }
     .btn-logout-pill { width: 100%; text-align: center; padding: 0.6rem; }
 }
@@ -2098,4 +2112,10 @@ html:not([data-theme="dark"]) .stat-icon { color: var(--primary-dark); }
 @media (max-width: 560px) {
     .floating-chat-panel { width: calc(100vw - 2rem); height: 400px; }
     .hide-sm { display: none; }
+}
+
+@media (max-width: 420px) {
+    .hero-stats-row { grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+    .hero-stat-badge { padding: 0.75rem; }
+    .hero-stat-badge .num { font-size: 1.35rem; }
 }
