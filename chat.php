@@ -271,7 +271,7 @@ include __DIR__ . '/includes/header.php';
     function renderMembers(members, onlineCount) {
         if (onlineBadge) onlineBadge.textContent = onlineCount + ' Online';
         if (!membersList || !Array.isArray(members)) return;
-        membersList.innerHTML = members.map(function(u) {
+        const nextHtml = members.map(function(u) {
             const av = u.avatar
                 ? `<img src="uploads/${escapeHtml(u.avatar)}" class="user-avatar-img" style="width:34px;height:34px;" alt="">`
                 : `<div class="user-avatar ${escapeHtml(u.avatar_class)}" style="width:34px;height:34px;font-size:0.76rem;">${escapeHtml(u.initials)}</div>`;
@@ -289,6 +289,10 @@ include __DIR__ . '/includes/header.php';
                 </a>
             `;
         }).join('');
+        if (membersList._lastHtml !== nextHtml) {
+            membersList._lastHtml = nextHtml;
+            membersList.innerHTML = nextHtml;
+        }
     }
 
     let chatPollTimer = null;
@@ -358,12 +362,18 @@ include __DIR__ . '/includes/header.php';
             try {
                 const res  = await fetch('chat-api.php', { method: 'POST', headers: { 'X-CSRF-Token': token }, body: fd });
                 const data = await res.json();
-                if (data && data.ok) {
+                if (res.ok && data && data.ok) {
                     if (row) row.remove();
                     showEmptyIfNeeded();
                     if (window.showToast) window.showToast('Pesan berhasil dihapus.', 'success');
+                } else {
+                    if (row) row.style.opacity = '';
+                    if (window.showToast) window.showToast((data && data.error) ? data.error : 'Gagal menghapus pesan.', 'error');
                 }
-            } catch (e) {}
+            } catch (e) {
+                if (row) row.style.opacity = '';
+                if (window.showToast) window.showToast('Gagal menghubungi server.', 'error');
+            }
         }
     });
 

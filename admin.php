@@ -765,7 +765,10 @@ include __DIR__ . '/includes/header.php';
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
                         <label for="new_pass">Kata Sandi Awal <span class="required">*</span></label>
-                        <input type="password" id="new_pass" name="password" required minlength="6" placeholder="Minimal 6 karakter">
+                        <div class="input-wrap">
+                            <input type="password" id="new_pass" name="password" required minlength="6" placeholder="Minimal 6 karakter" autocomplete="new-password">
+                            <button type="button" class="pw-toggle" data-target="new_pass" aria-label="Tampilkan kata sandi"><?= svgIcon('eye', 16) ?></button>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-foot">
@@ -790,7 +793,10 @@ include __DIR__ . '/includes/header.php';
                 <div class="modal-body">
                     <div class="form-group" style="margin-bottom:0;">
                         <label for="reset_new_pw">Kata Sandi Baru <span class="required">*</span></label>
-                        <input type="password" id="reset_new_pw" name="new_password" required minlength="6" placeholder="Minimal 6 karakter">
+                        <div class="input-wrap">
+                            <input type="password" id="reset_new_pw" name="new_password" required minlength="6" placeholder="Minimal 6 karakter" autocomplete="new-password">
+                            <button type="button" class="pw-toggle" data-target="reset_new_pw" aria-label="Tampilkan kata sandi"><?= svgIcon('eye', 16) ?></button>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-foot">
@@ -800,34 +806,5 @@ include __DIR__ . '/includes/header.php';
             </form>
         </div>
     </div>
-
-<script>
-(function() {
-    document.querySelectorAll('.js-open-reset-pw').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            const modal = document.getElementById('modalResetSandi');
-            const uidEl = document.getElementById('resetTargetUid');
-            const nmEl  = document.getElementById('resetTargetName');
-            if (modal && uidEl && nmEl) {
-                uidEl.value = btn.dataset.uid || '';
-                nmEl.textContent = btn.dataset.uname || '';
-                modal.classList.add('open');
-                document.body.style.overflow = 'hidden';
-            }
-        });
-    });
-
-    document.querySelectorAll('.pw-toggle[data-pw-target]').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            const input = document.getElementById(btn.getAttribute('data-pw-target'));
-            if (!input) return;
-            const show = input.type === 'password';
-            input.type = show ? 'text' : 'password';
-            btn.classList.toggle('is-visible', show);
-            btn.setAttribute('aria-label', show ? 'Sembunyikan sandi' : 'Tampilkan sandi');
-        });
-    });
-})();
-</script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>

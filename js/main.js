@@ -37,6 +37,7 @@
         initPjaxRouter();
         initAjaxLikes();
         initModals();
+        initPasswordToggles();
         initRipple();
         initLightbox();
         initShareButtons();
@@ -141,7 +142,7 @@
         }
 
         function applyGlider(el, animate) {
-            if (!el || window.innerWidth <= 820) {
+            if (!el || window.innerWidth <= 1100) {
                 glider.style.opacity = '0';
                 return;
             }
@@ -171,7 +172,7 @@
 
         links.forEach(function (link) {
             link.addEventListener('mouseenter', function () {
-                if (window.innerWidth <= 820) return;
+                if (window.innerWidth <= 1100) return;
                 const m = getMetrics(link);
                 hoverGlider.style.width     = m.w + 'px';
                 hoverGlider.style.height    = m.h + 'px';
@@ -446,27 +447,41 @@
         return file.endsWith('.php') || file === 'index.php';
     }
 
-    async function fetchPageHtml(urlStr, forceNetwork) {
+    async function fetchPageHtml(urlStr, forceNetwork, isPrefetch) {
         const now = Date.now();
         if (!forceNetwork && pjaxCache.has(urlStr)) {
             const cached = pjaxCache.get(urlStr);
-            if (now - cached.time < PJAX_TTL) return cached.html;
+            if (now - cached.time < PJAX_TTL) {
+                return { html: cached.html, finalUrl: urlStr };
+            }
         }
 
-        const res = await fetch(urlStr, {
-            method: 'GET',
-            credentials: 'same-origin',
-            cache: 'no-store',
-            headers: { 'X-PJAX': 'true', 'Accept': 'text/html' }
-        });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        if (res.redirected && res.url.includes('login.php')) {
-            window.location.href = res.url;
-            return null;
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 8000);
+        try {
+            const res = await fetch(urlStr, {
+                method: 'GET',
+                credentials: 'same-origin',
+                cache: 'no-store',
+                signal: ctrl.signal,
+                headers: { 'X-PJAX': 'true', 'Accept': 'text/html' }
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            if (res.redirected) {
+                if (isPrefetch) return null;
+                const redirUrl = new URL(res.url, window.location.origin);
+                if (res.url.includes('login.php') || !isPjaxEligibleUrl(redirUrl)) {
+                    window.location.href = res.url;
+                    return null;
+                }
+            }
+            const html = await res.text();
+            const finalUrl = res.redirected ? res.url : urlStr;
+            pjaxCache.set(finalUrl, { html, time: Date.now() });
+            return { html, finalUrl };
+        } finally {
+            clearTimeout(timer);
         }
-        const html = await res.text();
-        pjaxCache.set(urlStr, { html, time: Date.now() });
-        return html;
     }
 
     function prefetchUrl(urlStr) {
@@ -477,7 +492,7 @@
             if (file === 'chat.php') return;
             const now = Date.now();
             if (pjaxCache.has(u.href) && (now - pjaxCache.get(u.href).time < PJAX_TTL)) return;
-            fetchPageHtml(u.href, false).catch(() => {});
+            fetchPageHtml(u.href, false, true).catch(() => {});
         } catch (e) {}
     }
 
@@ -527,6 +542,19 @@
             const url = new URL(link.href, window.location.href);
             if (!isPjaxEligibleUrl(url)) return;
 
+            const curFile = (window.location.pathname.split('/').pop() || 'index.php');
+            const tgtFile = (url.pathname.split('/').pop() || 'index.php');
+            if (url.origin === window.location.origin && tgtFile === curFile && url.searchParams.has('tab')) {
+                const tabName = url.searchParams.get('tab');
+                const tabBtn  = $(`.tab-btn[data-tab="${tabName}"]`, stage);
+                if (tabBtn) {
+                    e.preventDefault();
+                    tabBtn.click();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    return;
+                }
+            }
+
             if (normalizeComparableUrl(url) === normalizeComparableUrl(new URL(window.location.href))) {
                 e.preventDefault();
                 if (syncNavToUrl) syncNavToUrl(url.href, true);
@@ -564,21 +592,33 @@
 
             try {
                 const isChatTarget = targetUrl.includes('chat.php');
-                const html = await fetchPageHtml(targetUrl, isChatTarget);
-                if (!html || reqId !== activeNavRequest) return;
+                const pageRes = await fetchPageHtml(targetUrl, isChatTarget, false);
+                if (!pageRes || !pageRes.html || reqId !== activeNavRequest) {
+                    finishProgress();
+                    return;
+                }
+                const html = pageRes.html;
+                const effectiveUrl = pageRes.finalUrl || targetUrl;
 
                 const doc = new DOMParser().parseFromString(html, 'text/html');
                 const newStage = doc.getElementById('pjaxStage');
                 if (!newStage) {
-                    window.location.href = targetUrl;
+                    finishProgress();
+                    window.location.href = effectiveUrl;
                     return;
                 }
 
-                // Sinkronkan token CSRF & pil profil header dari dokumen baru jika ada
+                // Sinkronkan token CSRF, input CSRF di header, & pil profil header dari dokumen baru
                 const newCsrf = doc.querySelector('meta[name="csrf-token"]');
                 const curCsrf = $('meta[name="csrf-token"]');
                 if (newCsrf && curCsrf) {
-                    curCsrf.setAttribute('content', newCsrf.getAttribute('content') || '');
+                    const tokenVal = newCsrf.getAttribute('content') || '';
+                    curCsrf.setAttribute('content', tokenVal);
+                    if (tokenVal) {
+                        $$('header input[name="csrf_token"]').forEach(function (inp) {
+                            inp.value = tokenVal;
+                        });
+                    }
                 }
 
                 const newUserPill = doc.querySelector('.nav-user-pill');
@@ -600,8 +640,11 @@
                 runCleanupFns();
 
                 if (doc.title) document.title = doc.title;
+                if (effectiveUrl !== targetUrl && syncNavToUrl) {
+                    syncNavToUrl(effectiveUrl, false);
+                }
                 if (pushState && window.history && window.history.pushState) {
-                    window.history.pushState({ url: targetUrl }, '', targetUrl);
+                    window.history.pushState({ url: effectiveUrl }, '', effectiveUrl);
                 }
 
                 const curStage = $('#pjaxStage');
@@ -618,7 +661,7 @@
 
                 const floatingRoot = $('#floatingChatRoot');
                 if (floatingRoot) {
-                    floatingRoot.style.display = (pageAttr === 'chat' || isChatTarget) ? 'none' : '';
+                    floatingRoot.style.display = (pageAttr === 'chat' || effectiveUrl.includes('chat.php')) ? 'none' : '';
                 }
 
                 window.scrollTo({ top: 0, behavior: 'auto' });
@@ -634,9 +677,10 @@
                 finishProgress();
 
                 if (isCached && !isChatTarget) {
-                    fetchPageHtml(targetUrl, true).catch(() => {});
+                    fetchPageHtml(effectiveUrl, true, true).catch(() => {});
                 }
             } catch (err) {
+                finishProgress();
                 window.location.href = targetUrl;
             }
         }
@@ -748,6 +792,16 @@
         document.addEventListener('click', function (e) {
             const opener = e.target.closest('[data-modal-open]');
             if (opener) { e.preventDefault(); openModal(opener.dataset.modalOpen); return; }
+            const resetTrigger = e.target.closest('.js-open-reset-pw');
+            if (resetTrigger) {
+                e.preventDefault();
+                const uidEl = $('#resetTargetUid');
+                const nmEl  = $('#resetTargetName');
+                if (uidEl) uidEl.value = resetTrigger.dataset.uid || '';
+                if (nmEl) nmEl.textContent = resetTrigger.dataset.uname || '';
+                openModal('modalResetSandi');
+                return;
+            }
             const closer = e.target.closest('[data-modal-close]');
             if (closer) { e.preventDefault(); closeModal(closer.closest('.modal')); return; }
             if (e.target.classList && e.target.classList.contains('modal')) closeModal(e.target);
@@ -756,6 +810,30 @@
             if (e.key === 'Escape') {
                 const open = $('.modal.open');
                 if (open) closeModal(open);
+            }
+        });
+    }
+
+    function initPasswordToggles() {
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('.pw-toggle');
+            if (!btn) return;
+            const targetId = btn.getAttribute('data-target') || btn.getAttribute('data-pw-target');
+            const input = targetId ? document.getElementById(targetId) : (btn.parentElement && btn.parentElement.querySelector('input'));
+            if (!input) return;
+            const show = input.type === 'password';
+            input.type = show ? 'text' : 'password';
+            btn.classList.toggle('is-visible', show);
+            btn.setAttribute('aria-label', show ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi');
+        });
+
+        document.addEventListener('submit', function (e) {
+            const form = e.target;
+            if (!form || form.tagName !== 'FORM') return;
+            const csrfInput = form.querySelector('input[name="csrf_token"]');
+            const token = getCsrfToken();
+            if (csrfInput && token) {
+                csrfInput.value = token;
             }
         });
     }
@@ -777,16 +855,6 @@
     }
 
     function initFormUX(ctx) {
-        $$('.pw-toggle', ctx).forEach(function (btn) {
-            if (btn.dataset.bound === '1') return;
-            btn.dataset.bound = '1';
-            btn.addEventListener('click', function () {
-                const input = document.getElementById(btn.dataset.target);
-                if (!input) return;
-                input.type = input.type === 'password' ? 'text' : 'password';
-            });
-        });
-
         $$('[data-pw-meter]', ctx).forEach(function (input) {
             if (input.dataset.bound === '1') return;
             input.dataset.bound = '1';
@@ -955,6 +1023,25 @@
     }
 
     function initShareButtons() {
+        function copyTextFallback(text) {
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.setAttribute('readonly', '');
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                ta.setSelectionRange(0, text.length);
+                const ok = document.execCommand('copy');
+                ta.remove();
+                showToast(ok ? 'Tautan berhasil disalin ke papan klip!' : ('Tautan: ' + text), 'success');
+            } catch (err) {
+                showToast('Tautan: ' + text, 'success');
+            }
+        }
+
         document.addEventListener('click', function (e) {
             const btn = e.target.closest('[data-share-url]');
             if (!btn) return;
@@ -967,9 +1054,11 @@
                 rawUrl = u.href;
             }
             if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(rawUrl).then(() => showToast('Tautan berhasil disalin ke papan klip!', 'success'));
+                navigator.clipboard.writeText(rawUrl)
+                    .then(() => showToast('Tautan berhasil disalin ke papan klip!', 'success'))
+                    .catch(() => copyTextFallback(rawUrl));
             } else {
-                showToast('Tautan: ' + rawUrl, 'success');
+                copyTextFallback(rawUrl);
             }
         });
     }
@@ -996,6 +1085,10 @@
         }
 
         async function loadMiniChat(scrollBottom) {
+            if (!panel.classList.contains('open') && !scrollBottom) {
+                if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+                return;
+            }
             try {
                 const res  = await fetch('chat-api.php?action=fetch&limit=25&_t=' + Date.now(), { cache: 'no-store' });
                 const data = await res.json();
@@ -1005,9 +1098,10 @@
                     onlineText.textContent = data.online_count + ' anggota online';
                 }
 
+                let nextHtml;
                 if (Array.isArray(data.messages) && data.messages.length > 0) {
                     const trashSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
-                    body.innerHTML = data.messages.map(function (m) {
+                    nextHtml = data.messages.map(function (m) {
                         const delBtn = m.can_delete
                             ? `<button type="button" data-mini-del="${m.id}" style="background:none;border:none;color:#fb7185;cursor:pointer;display:inline-flex;align-items:center;padding:2px;" title="Hapus">${trashSvg}</button>`
                             : '';
@@ -1029,10 +1123,15 @@
                             </div>
                         `;
                     }).join('');
-                    if (scrollBottom) body.scrollTop = body.scrollHeight;
                 } else {
-                    body.innerHTML = '<div class="admin-hint" style="text-align:center;padding:2rem 0.5rem;">Belum ada obrolan. Yuk sapa teman-teman!</div>';
+                    nextHtml = '<div class="admin-hint" style="text-align:center;padding:2rem 0.5rem;">Belum ada obrolan. Yuk sapa teman-teman!</div>';
                 }
+
+                if (body._lastHtml !== nextHtml) {
+                    body._lastHtml = nextHtml;
+                    body.innerHTML = nextHtml;
+                }
+                if (scrollBottom) body.scrollTop = body.scrollHeight;
             } catch (e) {}
         }
 

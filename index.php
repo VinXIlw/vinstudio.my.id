@@ -527,8 +527,9 @@ include __DIR__ . '/includes/header.php';
                 statCount.textContent = data.total_messages;
             }
 
+            let nextHtml;
             if (Array.isArray(data.messages) && data.messages.length > 0) {
-                previewList.innerHTML = data.messages.map(function(m) {
+                nextHtml = data.messages.map(function(m) {
                     const delBtn = m.can_delete
                         ? `<button type="button" class="preview-del-btn" data-home-del="${m.id}" title="Hapus pesan" aria-label="Hapus pesan"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>`
                         : '';
@@ -552,7 +553,12 @@ include __DIR__ . '/includes/header.php';
                     `;
                 }).join('');
             } else {
-                previewList.innerHTML = `<div class="chat-preview-item" style="justify-content:center;color:var(--text-light);">Belum ada pesan di ruang obrolan. Yuk sapa teman-teman!</div>`;
+                nextHtml = `<div class="chat-preview-item" style="justify-content:center;color:var(--text-light);">Belum ada pesan di ruang obrolan. Yuk sapa teman-teman!</div>`;
+            }
+
+            if (previewList._lastHtml !== nextHtml) {
+                previewList._lastHtml = nextHtml;
+                previewList.innerHTML = nextHtml;
             }
         } catch (e) {}
     }
@@ -570,12 +576,15 @@ include __DIR__ . '/includes/header.php';
         try {
             const res = await fetch('chat-api.php', { method: 'POST', headers: { 'X-CSRF-Token': token }, body: fd });
             if (res.ok) {
+                previewList._lastHtml = '';
                 await refreshHomeChat();
                 if (window.showToast) window.showToast('Pesan dihapus.', 'success');
             } else {
+                if (row) row.style.opacity = '';
                 if (window.showToast) window.showToast('Gagal menghapus pesan.', 'error');
             }
         } catch (err) {
+            if (row) row.style.opacity = '';
             if (window.showToast) window.showToast('Koneksi bermasalah saat menghapus pesan.', 'error');
         }
     });

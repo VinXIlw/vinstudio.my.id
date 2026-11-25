@@ -1,8 +1,18 @@
 <?php
 require_once __DIR__ . '/config.php';
 
-// Hanya izinkan POST dengan CSRF valid untuk mencegah serangan Force-Logout lintas situs
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrfToken()) {
+// Izinkan POST dengan CSRF valid atau same-origin yang terverifikasi untuk mencegah Force-Logout lintas situs
+$isPost = ($_SERVER['REQUEST_METHOD'] === 'POST');
+$csrfOk = $isPost && verifyCsrfToken();
+$sameOrigin = false;
+if ($isPost) {
+    $srcUrl  = $_SERVER['HTTP_ORIGIN'] ?? ($_SERVER['HTTP_REFERER'] ?? '');
+    $srcHost = $srcUrl !== '' ? strtolower((string)parse_url($srcUrl, PHP_URL_HOST)) : '';
+    $srvHost = strtolower((string)parse_url('http://' . ($_SERVER['HTTP_HOST'] ?? ''), PHP_URL_HOST));
+    $sameOrigin = ($srcHost !== '' && $srvHost !== '' && hash_equals($srvHost, $srcHost));
+}
+
+if ($isPost && ($csrfOk || $sameOrigin)) {
     $u = currentUser();
     if ($u) {
         logActivity($pdo, $u['id'], $u['email'], $u['displayName'], 'logout', 'Keluar dari sesi');
